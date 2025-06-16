@@ -1,59 +1,67 @@
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
-import 'react-native-reanimated';
+import React, { useEffect, useRef } from 'react';
+import { Stack, router, usePathname } from 'expo-router';
+import { View, Text, StyleSheet } from 'react-native';
+import { LanguageProvider, useLanguage } from './languageSelector';
+import LanguageSelector from '@/components/languageComponent';
 
-import { useColorScheme } from '@/components/useColorScheme';
-
-export {
-  // Catch any errors thrown by the Layout component.
-  ErrorBoundary,
-} from 'expo-router';
-
-export const unstable_settings = {
-  // Ensure that reloading on `/modal` keeps a back button present.
-  initialRouteName: '(tabs)',
-};
-
-// Prevent the splash screen from auto-hiding before asset loading is complete.
-SplashScreen.preventAutoHideAsync();
-
-export default function RootLayout() {
-  const [loaded, error] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-    ...FontAwesome.font,
-  });
-
-  // Expo Router uses Error Boundaries to catch errors in the navigation tree.
-  useEffect(() => {
-    if (error) throw error;
-  }, [error]);
+function HeaderContent() {
+  const { sourceLanguage, targetLanguage, setSourceLanguage, setTargetLanguage } = useLanguage();
+  const isFirstRender = useRef(true);
 
   useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
     }
-  }, [loaded]);
-
-  if (!loaded) {
-    return null;
-  }
-
-  return <RootLayoutNav />;
-}
-
-function RootLayoutNav() {
-  const colorScheme = useColorScheme();
-
+    
+    // Only reload after initial render
+    router.replace('/(tabs)');
+  }, [sourceLanguage, targetLanguage]);
+  
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-      </Stack>
-    </ThemeProvider>
+    <View style={styles.headerContainer}>
+      <Text style={styles.title}>ReadApp</Text>
+      <LanguageSelector
+        sourceLanguage={sourceLanguage}
+        targetLanguage={targetLanguage}
+        onSourceLanguageChange={setSourceLanguage}
+        onTargetLanguageChange={setTargetLanguage}
+      />
+    </View>
   );
 }
+
+function LayoutWithLanguageSelector() {
+  return (
+    <Stack>
+      <Stack.Screen
+        name="(tabs)"
+        options={{
+          headerTitle: () => <HeaderContent />,
+        }}
+      />
+    </Stack>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <LanguageProvider>
+      <LayoutWithLanguageSelector />
+    </LanguageProvider>
+  );
+}
+
+const styles = StyleSheet.create({
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    paddingHorizontal: 10,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+});
