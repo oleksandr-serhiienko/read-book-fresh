@@ -87,3 +87,11 @@ export function createExampleHashSync(source: string, target: string): string {
   }
   return Math.abs(hash).toString(16);
 }
+
+const Helpers = {
+  renderHighlightedText,
+  selectBestContext,
+  createExampleHashSync,
+};
+
+export default Helpers;

@@ -15,21 +15,29 @@ export interface ParsedWord {
   isTranslation: boolean;
 }
   
-  export interface ParsedSentence {
-    original: ParsedWord[];
-    translation: ParsedWord[];
-  }
-  
+export interface ParsedSentence {
+  original: ParsedWord[];
+  translation: ParsedWord[];
+}
 
-  
 export interface HighlightState {
-    sentenceNumber: number | null;
-    linkedNumbers: number[];
-  }
-  
+  sentenceNumber: number | null;
+  linkedNumbers: number[];
+}
+
 export interface DBReaderProps {
-    bookUrl: string;
-    bookTitle: string;
-    imageUrl: string;
-  }
-  
+  bookUrl: string;
+  bookTitle: string;
+  imageUrl: string;
+}
+
+// Create a types module object to serve as default export
+const TypesModule = {
+  ParsedWord: {} as ParsedWord,
+  ParsedSentence: {} as ParsedSentence,
+  HighlightState: {} as HighlightState,
+  DBReaderProps: {} as DBReaderProps,
+};
+
+// Add default export to fix the warning
+export default TypesModule;

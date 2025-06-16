@@ -30,3 +30,10 @@ export const learningComponents: LearningComponentsMap = {
 export const getLearningComponent = (type: LearningType): LearningComponentType => {
   return learningComponents[type] || WordToMeaningExercise;
 };
+
+const LearningFactory = {
+  learningComponents,
+  getLearningComponent,
+};
+
+export default LearningFactory;

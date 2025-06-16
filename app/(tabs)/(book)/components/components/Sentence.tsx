@@ -141,3 +141,5 @@ const styles = StyleSheet.create({
     paddingLeft: 16,
   }
 });
+
+export default Sentence;

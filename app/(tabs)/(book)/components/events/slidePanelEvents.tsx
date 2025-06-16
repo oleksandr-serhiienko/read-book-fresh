@@ -56,3 +56,5 @@ export class SlidePanelEvents {
     this.isEmitting = false;
   }
 }
+
+export default SlidePanelEvents;

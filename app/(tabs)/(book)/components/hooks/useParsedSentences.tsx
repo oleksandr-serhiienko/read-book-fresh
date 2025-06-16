@@ -151,3 +151,5 @@ export const useParsedSentences = (chapterSentences: DBSentence[]) => {
     parseSentence
   };
 };
+
+export default useParsedSentences;

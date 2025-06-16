@@ -19,3 +19,5 @@ export class CardEvents {
     this.listeners.forEach(listener => listener(card, success));
   }
 }
+
+export default CardEvents;

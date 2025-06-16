@@ -45,3 +45,5 @@ export class FontSizeEvents {
     this.isEmitting = false;
   }
 }
+
+export default FontSizeEvents;

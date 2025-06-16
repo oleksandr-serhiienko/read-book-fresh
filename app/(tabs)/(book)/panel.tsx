@@ -154,33 +154,34 @@ const WordTranslationPanel = ({
     </BasePanel>
   );
 };
+
 const styles = StyleSheet.create({
-    actionButton: {
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        padding: 8,
-        borderRadius: 20,
-        minWidth: 36,
-        alignItems: 'center',
-        justifyContent: 'center',
-      },
-      disabledButton: {
-        backgroundColor: 'rgba(255,255,255,0.1)',
-      },
-      speakButtonActive: {
-        backgroundColor: 'rgba(255,255,255,0.1)',
-      },
-    sentenceContent: {
-        padding: 15,
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-      },
-      sentenceTranslation: {
-        flex: 1,
-        fontSize: 18,
-        color: 'white',
-        marginRight: 10,
-        lineHeight: 24,
-      },
+  actionButton: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    padding: 8,
+    borderRadius: 20,
+    minWidth: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  disabledButton: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  speakButtonActive: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  sentenceContent: {
+    padding: 15,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  sentenceTranslation: {
+    flex: 1,
+    fontSize: 18,
+    color: 'white',
+    marginRight: 10,
+    lineHeight: 24,
+  },
   panel: {
     position: 'absolute',
     bottom: 0,
@@ -247,4 +248,8 @@ const styles = StyleSheet.create({
   }
 });
 
+// Export WordTranslationPanel as named export
 export { WordTranslationPanel };
+
+// Add default export to fix the warning
+export default WordTranslationPanel;

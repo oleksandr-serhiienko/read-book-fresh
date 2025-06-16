@@ -12,3 +12,11 @@ export interface CardProps {
 
 export type CardComponentType = React.FC<CardProps>;
 export type CardComponentsMap = Record<number, CardComponentType>;
+
+const CardTypesModule = {
+  CardProps: {} as CardProps,
+  CardComponentType: {} as CardComponentType,
+  CardComponentsMap: {} as CardComponentsMap,
+};
+
+export default CardTypesModule;

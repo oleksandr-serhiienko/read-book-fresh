@@ -66,3 +66,5 @@ export const useChapterData = ({ db }: UseChapterDataProps) => {
     previousChapter
   };
 };
+
+export default useChapterData;

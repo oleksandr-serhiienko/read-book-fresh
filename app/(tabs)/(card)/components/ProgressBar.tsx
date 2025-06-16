@@ -27,3 +27,5 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({ cardsLearned, cardsToL
     </View>
   </View>
 );
+
+export default ProgressBar;

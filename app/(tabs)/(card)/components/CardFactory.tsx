@@ -30,3 +30,11 @@ export const needContext = (level: number): boolean => {
   else 
     return true;
 };
+
+const CardFactory = {
+  cardComponents,
+  getCardComponent,
+  needContext,
+};
+
+export default CardFactory;

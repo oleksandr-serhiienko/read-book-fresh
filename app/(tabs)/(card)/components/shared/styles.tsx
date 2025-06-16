@@ -287,3 +287,10 @@ export const learningStyles = StyleSheet.create({
     textAlign: 'center',
   }
 });
+
+const Styles = {
+  cardStyles,
+  learningStyles,
+};
+
+export default Styles;

@@ -92,3 +92,5 @@ export const useWordHighlight = (
     isWordHighlighted
   };
 };
+
+export default useWordHighlight;
