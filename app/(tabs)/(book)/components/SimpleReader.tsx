@@ -1,5 +1,5 @@
 // SimpleReader.tsx - Fixed version
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, ScrollView, ActivityIndicator, StyleSheet, Text, FlatList, Button, TouchableOpacity } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useChapterData } from './hooks/useChapterData';
@@ -70,6 +70,10 @@ const SimpleReader: React.FC<DBReaderProps> = ({ bookUrl, bookTitle, imageUrl })
   
   // FlatList ref
   const flatListRef = useRef<FlatList<DBSentence>>(null);
+
+  // Add these at the top of your SimpleReader component
+  const updateQueueRef = useRef<Array<{chapter: number, sentence: number}>>([]);
+  const isProcessingQueueRef = useRef(false);
   
   // Update the ref whenever readerCurrentChapter changes
   useEffect(() => {
@@ -242,7 +246,38 @@ const SimpleReader: React.FC<DBReaderProps> = ({ bookUrl, bookTitle, imageUrl })
                               targetSentenceIndex > 1 && 
                               isAtBeginning;
 
-  // Track visible items to log reading progress and save position
+    // Queue processor function
+  const processUpdateQueue = useCallback(async () => {
+    if (isProcessingQueueRef.current || updateQueueRef.current.length === 0) {
+      return;
+    }
+    
+    isProcessingQueueRef.current = true;
+    
+    try {
+      // Get the latest update (ignore intermediate ones)
+      const latestUpdate = updateQueueRef.current[updateQueueRef.current.length - 1];
+      updateQueueRef.current = []; // Clear queue
+      
+      const progress = `${latestUpdate.chapter}_${latestUpdate.sentence}`;
+      
+      await database.updateBook(bookTitle, sourceLanguage.toLowerCase(), progress);
+      await getReadingProgress(latestUpdate.chapter, latestUpdate.sentence);
+      
+      console.log(`Progress updated: ${progress}`);
+      
+      // Process remaining items if any were added during processing
+      if (updateQueueRef.current.length > 0) {
+        setTimeout(() => processUpdateQueue(), 100);
+      }
+    } catch (error) {
+      console.error('Error updating progress:', error);
+    } finally {
+      isProcessingQueueRef.current = false;
+    }
+  }, [bookTitle, sourceLanguage]);
+
+  // Queue-based onViewableItemsChanged
   const onViewableItemsChanged = useRef(({ 
     viewableItems 
   }: {
@@ -250,7 +285,6 @@ const SimpleReader: React.FC<DBReaderProps> = ({ bookUrl, bookTitle, imageUrl })
     changed: ViewToken[];
   }) => {
     if (viewableItems && viewableItems.length > 0) {
-      // Get the middle item that's most likely being read
       const middleIndex = Math.floor(viewableItems.length / 2);
       const middleItem = viewableItems[middleIndex];
       
@@ -258,15 +292,17 @@ const SimpleReader: React.FC<DBReaderProps> = ({ bookUrl, bookTitle, imageUrl })
         const sentenceNumber = middleItem.item.sentence_number;
         if (sentenceNumber !== currentVisibleSentence) {
           setCurrentVisibleSentence(sentenceNumber);
-          // Use the current chapter from the ref, not the state
           const currentChapter = currentChapterRef.current;
           console.log(`Currently reading sentence ${sentenceNumber} / ${maxSentenceCount} in chapter ${currentChapter}`);
           
-          // Save current reading position to database with the CORRECT chapter number
-          // Format: "chapterNumber_sentenceNumber"
-          const progress = `${currentChapter}_${sentenceNumber}`;
-          database.updateBook(bookTitle, sourceLanguage.toLowerCase(), progress);
-          getReadingProgress(currentChapter, sentenceNumber);          
+          // Add to queue instead of immediate update
+          updateQueueRef.current.push({
+            chapter: currentChapter,
+            sentence: sentenceNumber
+          });
+          
+          // Process queue (will be ignored if already processing)
+          processUpdateQueue();
         }
       }
     }
@@ -287,7 +323,7 @@ const SimpleReader: React.FC<DBReaderProps> = ({ bookUrl, bookTitle, imageUrl })
       // You can also update the book progress in the database here
       // Use the overall progress (combination of chapter and sentence progress)
       const overallProgress = (chapterProgress + (sentenceProgress / totalChapters)) / 100;
-      database.updateBookProgress(bookTitle, sourceLanguage.toLowerCase(), overallProgress);
+      await database.updateBookProgress(bookTitle, sourceLanguage.toLowerCase(), overallProgress);
     } catch (error) {
       console.error("Error calculating reading progress:", error);
     }
