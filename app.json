@@ -36,7 +36,9 @@
           }
         }
       },
-      "allowCleartext": true
+      "allowCleartext": true,
+      "gradleVersion": "8.10.2",
+      "androidGradlePluginVersion": "8.6.1"
     },
     "web": {
       "bundler": "metro",
