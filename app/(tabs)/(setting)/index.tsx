@@ -139,9 +139,8 @@ export default function SettingsScreen() {
       }
       
       // 4. Construct the server URL
-      const serverUrl = book.bookUrl.includes('192.168.1.41:3000') 
-        ? 'http://192.168.1.41:3000'  // Use the same server as the book URL
-        : 'http://192.168.1.41:3000'; // Fallback server URL
+      const serverUrl = 'https://192.168.1.41:3443'
+
       
       // 5. Send the sentences to the server
       const response = await fetch(`${serverUrl}/sync-book/${sourceLanguage.toLowerCase()}/${dbFilename}`, {

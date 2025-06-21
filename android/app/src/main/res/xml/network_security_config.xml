@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+  <!-- Configuration for your HTTPS server with self-signed certificate -->
+  <domain-config cleartextTrafficPermitted="false">
+    <!-- Replace with your actual server IP/domain -->
+    <domain includeSubdomains="true">192.168.1.41</domain>
+    <trust-anchors>
+      <!-- Trust your self-signed certificate -->
+      <certificates src="@raw/server_cert"/>
+      <!-- Also trust system certificates -->
+      <certificates src="system"/>
+      <!-- Trust user-added certificates (for development/testing) -->
+      <certificates src="user"/>
+    </trust-anchors>
+  </domain-config>
+  
+  <!-- Debug configuration (for development) -->
+  <debug-overrides>
+    <trust-anchors>
+      <certificates src="system"/>
+      <certificates src="user"/>
+    </trust-anchors>
+  </debug-overrides>
+  
+  <!-- Base configuration -->
+  <base-config cleartextTrafficPermitted="false">
+    <trust-anchors>
+      <certificates src="system"/>
+    </trust-anchors>
+  </base-config>
+</network-security-config>
