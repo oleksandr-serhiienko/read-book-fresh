@@ -33,7 +33,7 @@ export default function SentenceInfo() {
       
         try {
           // Get the sentence from the database
-          const sentences = await db.getChapterSentencesBySnd(parsedContent.sentenceId);
+          const sentences = await db.getChapterSentencesByID(parsedContent.sentenceId);
           if (sentences && sentences.length > 0) {
             setDbSentence(sentences[0]);
             setOriginalText(sentences[0].original_parsed_text ?? "");

@@ -172,7 +172,7 @@ const Word: React.FC<WordProps> = memo(({
       word: currentPhrase,
       translation: translationPhrase,
       bookTitle: database.getDbName(),
-      sentenceId: sentence.sentence_number 
+      sentenceId: sentence.id 
     }
     
     SlidePanelEvents.emit(wordToEmmit, true);
@@ -189,7 +189,7 @@ const Word: React.FC<WordProps> = memo(({
       word: currentPhrase,
       translation: translationPhrase,
       bookTitle: database.getDbName(),
-      sentenceId: sentence.sentence_number 
+      sentenceId: sentence.id 
     }
     
     SlidePanelEvents.emit(wordToEmmit, true);
@@ -217,7 +217,7 @@ const Word: React.FC<WordProps> = memo(({
       word: cleanedWord,
       translation: updatedWord.word.toLowerCase() ||  await getMissedTranslation(cleanedWord),
       bookTitle: database.getDbName(),
-      sentenceId: sentence.sentence_number 
+      sentenceId: sentence.id 
     }
     
     SlidePanelEvents.emit(wordToEmmit, true);
@@ -236,7 +236,7 @@ const Word: React.FC<WordProps> = memo(({
       word: cleanedWord,
       translation: coupledTranslation || await getMissedTranslation(cleanedWord),
       bookTitle: database.getDbName(),
-      sentenceId: sentence.sentence_number 
+      sentenceId: sentence.id 
     }
     
     SlidePanelEvents.emit(wordToEmmit, true);

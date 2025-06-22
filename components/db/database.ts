@@ -280,7 +280,7 @@ export class Database {
       console.log("Word already exists");
       return 0;
     }
-  
+
     // Create BookDatabase instance for the emitted word's book
     const bookDatabase = new BookDatabase(emittedWord.bookTitle);
     let wordInfo: Word | undefined;
@@ -297,7 +297,7 @@ export class Database {
     } catch (error) {
       console.error(`Error accessing book database for ${emittedWord.bookTitle}:`, error);
     }
-  
+
     // If no word info found in book database, create minimal structure
     if (!wordInfo) {
       wordInfo = {
@@ -312,7 +312,7 @@ export class Database {
         }]
       };
     }
-  
+
     // Get the sentence context if sentenceId is provided
     let sentenceContext = '';
     if (emittedWord.sentenceId && bookDatabase) {
@@ -326,7 +326,7 @@ export class Database {
         console.error('Error getting sentence context:', error);
       }
     }
-  
+
     // Create default CardInfo
     const defaultInfo: CardInfo = {
       status: 'learning',
@@ -338,33 +338,29 @@ export class Database {
       },
       sentence: sentenceContext
     };
-  
+
     const infoString = JSON.stringify(defaultInfo);
     const wordInfoString = JSON.stringify(wordInfo);
-    
-    // Just use an empty array string for translations to satisfy NOT NULL constraint
-    const emptyTranslations = '[]';
-  
+
     return await this.withDatabaseConnection(async (db) => {
       const result = await db.runAsync(
-        `INSERT INTO cards (word, wordInfo, translations, lastRepeat, level, userId, source, sourceLanguage, targetLanguage, comment, info)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO cards (word, wordInfo, lastRepeat, level, userId, source, sourceLanguage, targetLanguage, comment, info)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           emittedWord.word,
           wordInfoString,
-          emptyTranslations,
           new Date().toISOString(),
           0, // level starts at 0
           'test', // userId - you might want to make this dynamic
           emittedWord.bookTitle,
-          sourceLanguage, // You'll need to pass this or get it from context
-          targetLanguage, // You'll need to pass this or get it from context
+          sourceLanguage,
+          targetLanguage,
           '', // empty comment initially
           infoString
         ]
       );
     
-      console.log("Card added with ID:", result.lastInsertRowId);;
+      console.log("Card added with ID:", result.lastInsertRowId);
       return result.lastInsertRowId;
     });
   }

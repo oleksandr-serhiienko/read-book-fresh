@@ -278,6 +278,38 @@ export class BookDatabase {
     });
   }
 
+  async getChapterSentencesByID(sentenceNumber: number): Promise<DBSentence[]> {
+    return this.withRetry(async () => {
+      return await this.withDatabaseConnection(async (db) => {
+        let query = `SELECT 
+                      id as id,
+                      sentence_number,
+                      chapter_id,
+                      original_text,
+                      original_parsed_text,
+                      translation_parsed_text
+                    FROM book_sentences 
+                    WHERE id = ? 
+                    ORDER BY sentence_number`;
+                    
+        if (this.dbName.toLowerCase().includes("gemini")) {
+          query = `SELECT 
+                    sentence_id as id,
+                    sentence_number,
+                    chapter_id,
+                    original_text,
+                    original_parsed_text,
+                    translation_parsed_text
+                    FROM book_sentences 
+                    WHERE sentence_id = ? 
+                    ORDER BY sentence_id`;
+        }
+        
+        return await db.getAllAsync<DBSentence>(query, [sentenceNumber]);
+      });
+    });
+  }
+
   async getTotalChapters(): Promise<number> {
     return this.withRetry(async () => {
       return await this.withDatabaseConnection(async (db) => {
