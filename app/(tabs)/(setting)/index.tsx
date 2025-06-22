@@ -139,7 +139,7 @@ export default function SettingsScreen() {
       }
       
       // 4. Construct the server URL
-      const serverUrl = 'https://192.168.1.41:3443'
+      const serverUrl = 'http://192.168.1.41:3000'
 
       
       // 5. Send the sentences to the server

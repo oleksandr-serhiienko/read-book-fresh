@@ -140,9 +140,7 @@ export class Database {
       await this.withDatabaseConnection(async (db) => {
         await this.createTablesWithConnection(db);
       });
-      
-      await this.migrateDataToNewFormat();
-      await this.migrateToSyncHash();
+    
       
       this.isInitialized = true;
       console.log("Database initialized successfully");
@@ -248,51 +246,6 @@ export class Database {
     return Math.abs(hash).toString(16);
   }
 
-  async migrateToSyncHash(): Promise<void> {
-    console.log("Starting hash migration...");
-    
-    await this.withDatabaseConnection(async (db) => {
-      // Get all history entries with crypto hashes
-      const histories = await db.getAllAsync<any>(
-        'SELECT * FROM histories WHERE exampleHash IS NOT NULL'
-      );
-      
-      for (const history of histories) {
-        // Get the card to find the example
-        const card = await this.getCardByIdWithConnection(db, history.cardId);
-        if (!card || !card.wordInfo) continue;
-        
-        // Find the example that matches this hash
-        let found = false;
-        const allExamples = cardHelpers.getAllExamples(card);
-        
-        for (const example of allExamples) {
-          const cryptoHash = await this.createExampleHash(example.sentence || '', example.translation || '');
-          
-          if (cryptoHash === history.exampleHash) {
-            // Found the matching example, now create sync hash
-            const syncHash = this.createExampleHashSync(example.sentence || '', example.translation || '');
-            
-            // Update the history entry with new hash
-            await db.runAsync(
-              'UPDATE histories SET exampleHash = ? WHERE id = ?',
-              [syncHash, history.id]
-            );
-            
-            found = true;
-            break;
-          }
-        }
-        
-        if (found) {
-          console.log(`Migrated hash for history entry ${history.id}`);
-        }
-      }
-    });
-    
-    console.log("Hash migration completed");
-  }
-
   async createExampleHash(source: string, target: string): Promise<string> {
     // Create a deterministic hash from source and target
     const content = `${source}||${target}`;
@@ -304,131 +257,6 @@ export class Database {
     return hash.substring(0, 16); // Use first 16 chars for brevity
   }
 
-  async migrateDataToNewFormat(): Promise<void> {
-    console.log("Starting migration to new format...");
-    
-    // Check if migration is needed
-    const needsMigration = await this.checkIfMigrationNeeded();
-    if (!needsMigration) {
-      console.log("Migration not needed or already completed");
-      return;
-    }
-
-    await this.withDatabaseConnection(async (db) => {
-      // Get all cards that need migration
-      const cards = await db.getAllAsync<any>(`
-        SELECT * FROM cards 
-        WHERE wordInfo IS NULL 
-        AND translations IS NOT NULL
-      `);
-
-      for (const card of cards) {
-        try {
-          // Parse old data
-          const oldTranslations = JSON.parse(card.translations || '[]');
-          
-          // Get contexts for this card
-          const contexts = await db.getAllAsync<any>(
-            'SELECT * FROM contexts WHERE cardId = ? ORDER BY id',
-            [card.id]
-          );
-
-          // Create new Word structure
-          const word: Word = {
-            name: card.word,
-            baseForm: '',
-            additionalInfo: '',
-            translations: []
-          };
-
-          // Create translations with examples
-          for (let i = 0; i < oldTranslations.length; i++) {
-            const translation: Translation = {
-              type: '',
-              meaning: oldTranslations[i],
-              additionalInfo: '',
-              examples: []
-            };
-
-            // Add corresponding context as example, or distribute remaining contexts
-            if (i < contexts.length) {
-              translation.examples!.push({
-                sentence: contexts[i].sentence,
-                translation: contexts[i].translation
-              });
-            }
-
-            word.translations!.push(translation);
-          }
-
-          // Distribute remaining contexts to the last translation
-          if (contexts.length > oldTranslations.length && word.translations!.length > 0) {
-            const lastTranslation = word.translations![word.translations!.length - 1];
-            for (let i = oldTranslations.length; i < contexts.length; i++) {
-              if (!contexts[i].isBad) {
-                lastTranslation.examples!.push({
-                  sentence: contexts[i].sentence,
-                  translation: contexts[i].translation
-                });
-              }
-            }
-          }
-
-          // Update card with new structure
-          await db.runAsync(
-            'UPDATE cards SET wordInfo = ? WHERE id = ?',
-            [JSON.stringify(word), card.id]
-          );
-
-          // Update history entries with example hashes
-          await this.migrateHistoryForCardWithConnection(db, card.id, contexts);
-
-          console.log(`Migrated card: ${card.word}`);
-        } catch (error) {
-          console.error(`Error migrating card ${card.id}:`, error);
-        }
-      }
-    });
-
-    console.log("Migration completed successfully");
-  }
-
-  private async checkIfMigrationNeeded(): Promise<boolean> {
-    return await this.withDatabaseConnection(async (db) => {
-      // Check if there are cards with old format
-      const result = await db.getFirstAsync<{ count: number }>(`
-        SELECT COUNT(*) as count 
-        FROM cards 
-        WHERE translations IS NOT NULL 
-        AND wordInfo IS NULL
-      `);
-
-      return result ? result.count > 0 : false;
-    });
-  }
-
-  private async migrateHistoryForCardWithConnection(db: SQLite.SQLiteDatabase, cardId: number, contexts: any[]): Promise<void> {
-    // Get history entries for this card with contextId
-    const historyEntries = await db.getAllAsync<any>(
-      'SELECT * FROM histories WHERE cardId = ? AND contextId IS NOT NULL',
-      [cardId]
-    );
-
-    for (const entry of historyEntries) {
-      // Find the context referenced by this history entry
-      const context = contexts.find(c => c.id === entry.contextId);
-      if (context) {
-        // Generate hash for this example
-        const hash = await this.createExampleHash(context.sentence, context.translation);
-        
-        // Update history entry with hash
-        await db.runAsync(
-          'UPDATE histories SET exampleHash = ? WHERE id = ?',
-          [hash, entry.id]
-        );
-      }
-    }
-  }
 
   async WordDoesNotExist(name: string): Promise<boolean> {
     await this.initialize();
@@ -443,7 +271,7 @@ export class Database {
     });
   }
 
-  async insertCard(emittedWord: EmittedWord): Promise<number> {
+  async insertCard(emittedWord: EmittedWord, sourceLanguage: string, targetLanguage: string): Promise<number> {
     await this.initialize();
     
     // Check if word already exists
@@ -529,14 +357,14 @@ export class Database {
           0, // level starts at 0
           'test', // userId - you might want to make this dynamic
           emittedWord.bookTitle,
-          'sourceLanguage', // You'll need to pass this or get it from context
-          'targetLanguage', // You'll need to pass this or get it from context
+          sourceLanguage, // You'll need to pass this or get it from context
+          targetLanguage, // You'll need to pass this or get it from context
           '', // empty comment initially
           infoString
         ]
       );
     
-      console.log("Card added with ID:", result.lastInsertRowId);
+      console.log("Card added with ID:", result.lastInsertRowId);;
       return result.lastInsertRowId;
     });
   }

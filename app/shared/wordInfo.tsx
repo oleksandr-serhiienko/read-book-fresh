@@ -372,7 +372,7 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
          return;
       }
     if (!isAdded) {     
-      database.insertCard(parsedContent);
+      database.insertCard(parsedContent, sourceLanguage.toLowerCase(), sourceLanguage.toLowerCase());
       setIsAdded(true);
       setHistoryExists(true);
       
