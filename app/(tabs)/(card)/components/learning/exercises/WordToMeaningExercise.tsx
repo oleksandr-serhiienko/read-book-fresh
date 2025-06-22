@@ -118,14 +118,8 @@ const WordToMeaningExercise: React.FC<LearningExerciseProps> = ({
     return sentence;
   };
 
-  const getContextToShow = () => {
-    if (!card.info?.sentence) {
-      if (cardHelpers.getAllExamples(card)) {
-        return formatSentence(cardHelpers.getFirstExample(card)?.sentence ?? "");
-      }
-      return "";
-    }
-    return formatSentence(card.info.sentence);
+  const getContextToShow = () => {    
+    return formatSentence(cardHelpers.getFirstExample(card)?.sentence ?? "");     
   };
 
     return (

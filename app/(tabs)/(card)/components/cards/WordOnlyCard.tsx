@@ -38,23 +38,8 @@ const styles = {
 };
 
 const WordOnlyCard: FC<CardProps> = ({ card, onShowAnswer, isFlipping }) => {
-  const getContextToShow = () => {
-    if (!card.info?.sentence) {
-      if (cardHelpers.getAllExamples(card)) {
-        return formatSentence(cardHelpers.getFirstExample(card)?.sentence ?? "");
-      }
-      return "";
-    }
-
-    const wordCount = card.info.sentence.split(/\s+/).length;
-    if (wordCount > 20) {
-      if (!card.info?.sentence) {
-        return formatSentence(cardHelpers.getFirstExample(card)?.sentence ?? "");
-      }
-      return "";
-    }
-
-    return formatSentence(card.info.sentence);
+  const getContextToShow = () => {    
+    return formatSentence(cardHelpers.getFirstExample(card)?.sentence ?? "");   
   };
 
   const formatSentence = (sentence: string) => {
