@@ -22,23 +22,13 @@
       },
       "package": "com.oleksandrserhiienko.readbook",
       "permissions": [
-        "INTERNET"
+        "INTERNET",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "ACCESS_NETWORK_STATE"
       ],
       "usesCleartextTraffic": true,
-      "networkSecurityConfig": {
-        "baseConfig": {
-          "cleartextTrafficPermitted": true
-        },
-        "domainConfigs": {
-          "192.168.1.41": {
-            "cleartextTrafficPermitted": true,
-            "includeSubdomains": true
-          }
-        }
-      },
-      "allowCleartext": true,
-      "gradleVersion": "8.10.2",
-      "androidGradlePluginVersion": "8.6.1"
+      "networkSecurityConfig": "./android/app/src/main/res/xml/network_security_config.xml"
     },
     "web": {
       "bundler": "metro",

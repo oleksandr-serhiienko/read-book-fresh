@@ -81,97 +81,98 @@ const SimpleReader: React.FC<DBReaderProps> = ({ bookUrl, bookTitle, imageUrl })
   }, [readerCurrentChapter]);
   
   // Database initialization function
-  const initializeDb = async () => {
-    console.log("Initializing database for book:", bookTitle);
-    
-    // Clean up existing database if needed
-    if (dbRef.current) {
-      try {
-        console.log("Closing previous database connection");
-        await dbRef.current.close();
-        dbRef.current = null;
-      } catch (err) {
-        console.error("Error closing previous database:", err);
-        // Continue with new database creation regardless
-      }
-    }
-    
-    // Create fresh database instance
-    const bookDatabase = new BookDatabase(bookTitle);
-    let dbInitialized = false;
-    
+const initializeDb = async () => {
+  console.log("Initializing database for book:", bookTitle);
+  
+  // Initialize FileManager first to ensure directories exist
+  await FileManager.init();
+  
+  // Clean up existing database if needed
+  if (dbRef.current) {
     try {
+      console.log("Closing previous database connection");
+      await dbRef.current.close();
+      dbRef.current = null;
+    } catch (err) {
+      console.error("Error closing previous database:", err);
+      // Continue with new database creation regardless
+    }
+  }
+  
+  // Create fresh database instance
+  const bookDatabase = new BookDatabase(bookTitle);
+  let dbInitialized = false;
+  
+  try {
+    dbInitialized = await bookDatabase.initialize();
+    
+    if (!dbInitialized) {
+      console.log("Database not initialized, downloading...");
+      await bookDatabase.downloadDatabase(bookUrl);
       dbInitialized = await bookDatabase.initialize();
       
-      if (!dbInitialized) {
-        console.log("Database not initialized, downloading...");
-        await bookDatabase.downloadDatabase(bookUrl);
-        dbInitialized = await bookDatabase.initialize();
-        
-        if (!dbInitialized) { 
-          throw new Error("Failed to initialize database after download");
-        }
+      if (!dbInitialized) { 
+        throw new Error("Failed to initialize database after download");
       }
-      
-      // Update book record in main database
-      const bookExist = await database.getBookByName(bookTitle, sourceLanguage.toLowerCase());
-      let localImage = await FileManager.checkImage(imageUrl);    
-      if (bookExist === null) {
-        const book: Book = {
-          bookUrl: bookUrl,
-          name: bookTitle,
-          sourceLanguage: sourceLanguage.toLowerCase(),
-          updateDate: new Date(),
-          lastreadDate: new Date(),
-          imageUrl: localImage,
-          progress: 0
-        };
-        await database.insertBook(book);
-        maxChapterCount = await bookDatabase.getTotalChapters();
-        maxSentenceCount = await bookDatabase.getChapterSentenceCount(1);   
-      } else {
-        let savedChapter = 1; // Default
-        let savedSentence = 1; // Default
-        if (bookExist.currentLocation) {
-          try {
-            const parts = bookExist.currentLocation.split('_');
-            if (parts.length === 2) {
-              const ch = parseInt(parts[0], 10);
-              const sent = parseInt(parts[1], 10);
-              
-              if (!isNaN(ch) && ch > 0 && !isNaN(sent) && sent > 0) {
-                console.log(`Found saved position: Chapter ${ch}, Sentence ${sent}`);
-                savedChapter = ch;
-                savedSentence = sent;
-              }
-
-            }
-          } catch (e) {
-            console.error("Error parsing saved position:", e);
-          }
-        }
-        
-        // Set the values directly regardless of whether we found a saved position
-        console.log(`Setting reader position: Chapter ${savedChapter}, Sentence ${savedSentence}`);
-        setReaderCurrentChapter(savedChapter);
-        currentChapterRef.current = savedChapter; // Update the ref too
-        setTargetSentenceIndex(savedSentence); 
-        maxChapterCount = await bookDatabase.getTotalChapters();
-        maxSentenceCount = await bookDatabase.getChapterSentenceCount(savedChapter);      
-      }
-      
-      console.log("Database initialized successfully");
-      dbRef.current = bookDatabase;
-      setDb(bookDatabase);
-      
-
-      
-      return true;
-    } catch (error) {
-      console.error("Database initialization error:", error);
-      throw error;
     }
-  };
+    
+    // Update book record in main database
+    const bookExist = await database.getBookByName(bookTitle, sourceLanguage.toLowerCase());
+    let localImage = await FileManager.checkImage(imageUrl);    
+    if (bookExist === null) {
+      const book: Book = {
+        bookUrl: bookUrl,
+        name: bookTitle,
+        sourceLanguage: sourceLanguage.toLowerCase(),
+        updateDate: new Date(),
+        lastreadDate: new Date(),
+        imageUrl: localImage,
+        progress: 0
+      };
+      await database.insertBook(book);
+      maxChapterCount = await bookDatabase.getTotalChapters();
+      maxSentenceCount = await bookDatabase.getChapterSentenceCount(1);   
+    } else {
+      let savedChapter = 1; // Default
+      let savedSentence = 1; // Default
+      if (bookExist.currentLocation) {
+        try {
+          const parts = bookExist.currentLocation.split('_');
+          if (parts.length === 2) {
+            const ch = parseInt(parts[0], 10);
+            const sent = parseInt(parts[1], 10);
+            
+            if (!isNaN(ch) && ch > 0 && !isNaN(sent) && sent > 0) {
+              console.log(`Found saved position: Chapter ${ch}, Sentence ${sent}`);
+              savedChapter = ch;
+              savedSentence = sent;
+            }
+
+          }
+        } catch (e) {
+          console.error("Error parsing saved position:", e);
+        }
+      }
+      
+      // Set the values directly regardless of whether we found a saved position
+      console.log(`Setting reader position: Chapter ${savedChapter}, Sentence ${savedSentence}`);
+      setReaderCurrentChapter(savedChapter);
+      currentChapterRef.current = savedChapter; // Update the ref too
+      setTargetSentenceIndex(savedSentence); 
+      maxChapterCount = await bookDatabase.getTotalChapters();
+      maxSentenceCount = await bookDatabase.getChapterSentenceCount(savedChapter);      
+    }
+    
+    console.log("Database initialized successfully");
+    dbRef.current = bookDatabase;
+    setDb(bookDatabase);
+    
+    return true;
+  } catch (error) {
+    console.error("Database initialization error:", error);
+    throw error;
+  }
+};
 
   // Initialize database on mount or book change
   useEffect(() => {
