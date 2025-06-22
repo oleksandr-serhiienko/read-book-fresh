@@ -199,7 +199,7 @@ export class Database {
         progress INTEGER DEFAULT 0
       );
     `);
-
+    
     // Check for new columns and add them if they don't exist
     await this.ensureColumnExistsWithConnection(db, 'cards', 'wordInfo', 'TEXT');
     await this.ensureColumnExistsWithConnection(db, 'cards', 'info', "TEXT DEFAULT '{}'");
@@ -359,8 +359,13 @@ export class Database {
           infoString
         ]
       );
-    
-      console.log("Card added with ID:", result.lastInsertRowId);
+  
+      // You can also log all parameters together
+      console.log("Insert Card Parameters:", JSON.stringify({
+        emittedWord,
+        sourceLanguage,
+        targetLanguage
+      }, null, 2));
       return result.lastInsertRowId;
     });
   }

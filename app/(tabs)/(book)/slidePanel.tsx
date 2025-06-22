@@ -36,7 +36,7 @@ const SlidePanel: React.FC<SlidePanelProps> = ({
     }
     
     if (!isAdded) {
-      database.insertCard(content, sourceLanguage.toLowerCase(), targetLanguage.toLowerCase());
+      await database.insertCard(content, sourceLanguage.toLowerCase(), targetLanguage.toLowerCase());
       setIsAdded(true);
     }
   };
