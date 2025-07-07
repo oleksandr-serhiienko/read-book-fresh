@@ -1,5 +1,5 @@
-// Updated wordInfo.tsx - Handle EmittedWord type and fetch from database
-import React, { useEffect, useState } from 'react';
+// Updated wordInfo.tsx - Using useRef to store translation data immediately
+import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import { ResponseTranslation } from '@/components/reverso/reverso';
 import { EmittedWord } from '@/app/(tabs)/(book)/components/events/slidePanelEvents';
@@ -23,7 +23,6 @@ interface WordInfo {
   translation: string;
 }
 
-
 export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProps) {
   const parsedContent = JSON.parse(content);
   const [isAdded, setIsAdded] = useState(initialIsAdded);
@@ -35,6 +34,9 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
   const [isLoading, setIsLoading] = useState(true);
   const [wordData, setWordData] = useState<Word | null>(null);
   const [fullTranslation, setFullTranslation] = useState<ResponseTranslation | null>(null);
+  
+  // ✅ Add ref to store translation data immediately
+  const translationRef = useRef<ResponseTranslation | null>(null);
   
   const { sourceLanguage, targetLanguage } = useLanguage();
   const languageKey = sourceLanguage.toLowerCase() as keyof typeof languages;
@@ -76,22 +78,24 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
     }
     setupAndLoadData();
   }, [db]); 
-  
 
   const initializeData = async () => {
     try {
       setIsLoading(true);
+      
       if (isEmittedWord(parsedContent)) {
-        await handleEmittedWord(parsedContent); // TypeScript knows this is EmittedWord
+        await handleEmittedWord(parsedContent);
       } else {
         await handleCard(parsedContent);
       }
       
-      if (initialIsAdded) {
-        await loadExistingComment();
-        await checkForHistory();
-      } else {
-        await checkWordExists();
+      // ✅ Use ref data instead of state
+      if (initialIsAdded && translationRef.current) {
+        console.log("Loading existing comment for:", translationRef.current.Original);
+        await loadExistingComment(translationRef.current.Original);
+        await checkForHistory(translationRef.current.Original);
+      } else if (translationRef.current) {
+        await checkWordExists(translationRef.current.Original);
       }
     } catch (error) {
       console.error('Error initializing data:', error);
@@ -99,9 +103,11 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
       setIsLoading(false);
     }
   };
+
   const handleCard = async (cardId: number) => {
     let card = await database.getCardById(cardId);
     console.log("Got card " + card?.word + " for id " + card?.id + " in book "  + card?.source);
+    
     if (card?.wordInfo) {
       setWordData(card?.wordInfo);
       let word = card?.wordInfo;
@@ -124,13 +130,14 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
         TextView: "" 
       };
       
+      // ✅ Store in ref immediately
+      translationRef.current = responseTranslation;
       setFullTranslation(responseTranslation);
     }
   }
 
   const handleEmittedWord = async (emittedWord: EmittedWord) => {
     try {
-     
       let bookDb: BookDatabase | null = null;
       let wordTranslation: Word | null = null;
 
@@ -142,11 +149,12 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
           bookDb = tempDb;
           wordTranslation = translation;
           setDb(tempDb);            
-          
         }
       } catch (error) {
         console.error(`Error checking book ${emittedWord.bookTitle}:`, error);
       }
+
+      let responseTranslation: ResponseTranslation;
 
       if (wordTranslation) {
         setWordData(wordTranslation);
@@ -158,7 +166,7 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
         const allExamples = wordTranslation.translations?.flatMap(t => t.examples || []) || [];
         
         // Convert to ResponseTranslation format for compatibility
-        const responseTranslation: ResponseTranslation = {
+        responseTranslation = {
           Original: emittedWord.word,
           Translations: allMeanings.map(meaning => ({ word: meaning || '', pos: '' })),
           Contexts: allExamples.map(example => ({
@@ -168,20 +176,20 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
           Book: bookDb?.getDbName() || 'Unknown',
           TextView: emittedWord.translation
         };
-        
-        setFullTranslation(responseTranslation);
       } else {
         // If not found in database, create a minimal response
-        const responseTranslation: ResponseTranslation = {
+        responseTranslation = {
           Original: emittedWord.word,
           Translations: [{ word: emittedWord.translation, pos: '' }],
           Contexts: [],
           Book: emittedWord.bookTitle,
           TextView: emittedWord.translation
         };
-        
-        setFullTranslation(responseTranslation);
       }
+      
+      // ✅ Store in ref immediately
+      translationRef.current = responseTranslation;
+      setFullTranslation(responseTranslation);
     } catch (error) {
       console.error('Error handling emitted word:', error);
     }
@@ -215,15 +223,15 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
     }
   };
 
-  // Check if the word exists in the database
-  const checkWordExists = async () => {
-    if (!fullTranslation?.Original) return;
+  // ✅ Updated to accept word parameter
+  const checkWordExists = async (wordOriginal: string) => {
+    if (!wordOriginal) return;
     
     try {
-      const wordExists = !(await database.WordDoesNotExist(fullTranslation.Original));
+      const wordExists = !(await database.WordDoesNotExist(wordOriginal));
       setHistoryExists(wordExists);
       if (wordExists) {
-        const card = await database.getCardByWord(fullTranslation.Original);
+        const card = await database.getCardByWord(wordOriginal);
         if (card) {
           setCurrentCard(card);
         }
@@ -233,12 +241,12 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
     }
   };
 
-  // Check for history and load it
-  const checkForHistory = async () => {
-    if (!fullTranslation?.Original) return;
+  // ✅ Updated to accept word parameter
+  const checkForHistory = async (wordOriginal: string) => {
+    if (!wordOriginal) return;
     
     try {
-      const card = await database.getCardByWord(fullTranslation.Original);
+      const card = await database.getCardByWord(wordOriginal);
       if (card) {
         setCurrentCard(card);
         setHistoryExists(true);
@@ -277,11 +285,14 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
     }
   };
 
-  const loadExistingComment = async () => {
-    if (!fullTranslation?.Original) return;
+  // ✅ Updated to accept word parameter
+  const loadExistingComment = async (wordOriginal: string) => {
+    console.log("Loading comment for word:", wordOriginal);
+    if (!wordOriginal) return;
     
     try {
-      const card = await database.getCardByWord(fullTranslation.Original);
+      const card = await database.getCardByWord(wordOriginal);
+      console.log("Found card:", card?.word, "Comment:", card?.comment);
       if (card?.comment) {
         setComment(card.comment);
       }
@@ -291,11 +302,13 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
   };
 
   const handleAddComment = async () => {
-    if (!fullTranslation?.Original) return;
+    // ✅ Use ref data or fallback to state
+    const originalWord = translationRef.current?.Original || fullTranslation?.Original;
+    if (!originalWord) return;
     
     setIsSaving(true);
     try {
-      const card = await database.getCardByWord(fullTranslation.Original);
+      const card = await database.getCardByWord(originalWord);
       if (card?.id) {
         card.comment = comment;
         await database.updateCardComment(card);
@@ -320,7 +333,6 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
         
         // Navigate with the EmittedWord format
         const emittedWord: EmittedWord = {bookTitle: db.getDbName(), word: word, translation: "", sentenceId: 0 }
-
   
         router.push({
           pathname: "/wordInfo",
@@ -336,7 +348,9 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
   };
 
   const handleSpeak = async () => {
-    if (!fullTranslation?.Original) return;
+    // ✅ Use ref data or fallback to state
+    const originalWord = translationRef.current?.Original || fullTranslation?.Original;
+    if (!originalWord) return;
     
     setIsSpeaking(true);
     try {
@@ -345,7 +359,7 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
         pitch: 1.0,
         rate: 0.75
       };    
-      await Speech.speak(fullTranslation.Original, options);
+      await Speech.speak(originalWord, options);
     } catch (error) {
       console.error('Error speaking:', error);
     } finally {
@@ -364,9 +378,11 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
   };
 
   const handleAddToDictionary = async () => {
-    if (!fullTranslation?.Original) return;
+    // ✅ Use ref data or fallback to state
+    const originalWord = translationRef.current?.Original || fullTranslation?.Original;
+    if (!originalWord) return;
     
-    let noWord = await database.WordDoesNotExist(fullTranslation.Original)
+    let noWord = await database.WordDoesNotExist(originalWord)
     if (!noWord){
          console.log("Word already exists");
          return;
@@ -377,7 +393,7 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
       setHistoryExists(true);
       
       // After adding to dictionary, check for history again
-      await checkForHistory();
+      await checkForHistory(originalWord);
     }
   };
 
