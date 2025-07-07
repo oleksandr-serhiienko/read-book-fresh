@@ -138,6 +138,7 @@ export default function CardPanel() {
     // Fetch fresh card data to ensure we have all contexts
     const updatedCard = await database.getCardById(card.id ?? 0);
     if (updatedCard) {
+      console.log("HEEEEEEEEE27")
       CardEvents.emit(updatedCard, success);
     }
   

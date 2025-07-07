@@ -12,6 +12,15 @@ const localStyles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 4,
     marginBottom: 20,
+  },
+  contextSentence: {
+    fontSize: 16,
+    color: '#333',
+    textAlign: 'center',
+    marginTop: 15,
+    marginBottom: 10,
+    paddingHorizontal: 20,
+    lineHeight: 24,
   }
 });
 
@@ -32,6 +41,8 @@ const MeaningToWordExercise: React.FC<LearningExerciseProps> = ({
   const alternateTranslations = cardHelpers.getAllMeanings(card).slice(1);
 
   useEffect(() => {
+    setSelectedOption(null);
+    setShowResult(false);
     const otherOptions = otherCards
       .filter(c => c.id !== card.id)
       .map(c => c.word)
@@ -53,10 +64,31 @@ const MeaningToWordExercise: React.FC<LearningExerciseProps> = ({
       } else {
         onFailure();
       }
-      setSelectedOption(null);
-      setShowResult(false);
+      
     }, 1000);
   };
+
+  const formatSentence = (sentence: string) => {
+    if (!sentence) return "";
+    
+    if (sentence.includes('<em>')) {
+      return sentence.split(/(<em>.*?<\/em>)/).map((part, index) => {
+        if (part.startsWith('<em>') && part.endsWith('</em>')) {
+          const word = part.replace(/<\/?em>/g, '');
+          return (
+            <Text key={index} style={{ fontWeight: 'bold', color: '#333' }}>
+              {word}
+            </Text>
+          );
+        }
+        return <Text key={index}>{part}</Text>;
+      });
+    }
+
+    return sentence;
+  };
+
+  const hasExampleSentence = cardHelpers.getAllExamples(card) && cardHelpers.getAllExamples(card).length > 0;
 
   return (
     <ExerciseContainer>    

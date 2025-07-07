@@ -18,7 +18,8 @@ const ContextInputExercise: React.FC<LearningExerciseProps> = ({
   const [letterSources, setLetterSources] = useState<number[]>([]);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const [showCorrectAnswer, setShowCorrectAnswer] = useState(false);
+  const [emphasizedWords, setEmphasizedWords] = useState<string[]>([]);
+  const [targetSequence, setTargetSequence] = useState<string>('');
 
   useEffect(() => {
     resetExercise();
@@ -44,41 +45,93 @@ const ContextInputExercise: React.FC<LearningExerciseProps> = ({
     };
   }, []);
 
+  const getEmphasizedWords = () => {
+    const words = [];
+    
+    if (cardHelpers.getAllExamples(card) && cardHelpers.getAllExamples(card).length > 0) {
+      const sentence = cardHelpers.getFirstExample(card)?.sentence ?? "";
+      const emphasisMatches = sentence.match(/<em>(.*?)<\/em>/g);
+      
+      if (emphasisMatches) {
+        emphasisMatches.forEach(match => {
+          const word = match.replace(/<\/?em>/g, '');
+          words.push(word);
+        });
+      }
+    }
+    
+    // If no emphasized words found, use card.word
+    if (words.length === 0) {
+      words.push(card.word);
+    }
+    
+    return words;
+  };
+
+  const getTargetSequence = (words: string[]) => {
+    return words.join(' ... ');
+  };
+
+  const getTargetLettersSequence = (words: string[]) => {
+    // Combine all letters from all words for the letter selection
+    return words.join('');
+  };
+
   const resetExercise = () => {
+    const words = getEmphasizedWords();
+    const sequence = getTargetSequence(words);
+    const lettersSequence = getTargetLettersSequence(words);
+    
+    setEmphasizedWords(words);
+    setTargetSequence(sequence);
     setShowLetterHelp(false);
     setInputWord('');
     setSelectedLetters([]);
     setLetterSources([]);
     setShowResult(false);
-    setShowCorrectAnswer(false);
     setIsCorrect(null);
-    setAvailableLetters(card.word.split('').sort(() => Math.random() - 0.5));
+    setAvailableLetters(lettersSequence.split('').sort(() => Math.random() - 0.5));
+  };
+
+  const normalizeAnswer = (answer: string) => {
+    return answer.trim().toLowerCase().replace(/\s+/g, ' ');
+  };
+
+  const isAnswerCorrect = (answer: string) => {
+    const normalizedInput = normalizeAnswer(answer);
+    const normalizedTarget = normalizeAnswer(targetSequence);
+    
+    // Also accept individual words or card.word
+    const individualWordsCorrect = emphasizedWords.some(word => 
+      normalizeAnswer(word) === normalizedInput
+    );
+    const cardWordCorrect = normalizeAnswer(card.word) === normalizedInput;
+    
+    return normalizedInput === normalizedTarget || individualWordsCorrect || cardWordCorrect;
   };
 
   const handleSuccess = () => {
     setShowResult(true);
     setIsCorrect(true);
-    // Don't show the overlay for correct answers
     setTimeout(() => {
       onSuccess();
-      resetExercise();
+      // Don't reset here - let useEffect handle it when card changes
     }, 1000);
   };
 
   const handleFailure = () => {
     setShowResult(true);
     setIsCorrect(false);
-    setShowCorrectAnswer(true); // Only show overlay for wrong answers
     setTimeout(() => {
       onFailure();
-      resetExercise();
+      // Don't reset here - let useEffect handle it when card changes
     }, 1000);
   };
 
   const handleSubmit = () => {
     if (!inputWord.trim()) return;
     
-    const isWordCorrect = inputWord.trim().toLowerCase() === card.word.toLowerCase();
+    const isWordCorrect = isAnswerCorrect(inputWord);
     setIsCorrect(isWordCorrect);
     
     if (isWordCorrect) {
@@ -96,14 +149,34 @@ const ContextInputExercise: React.FC<LearningExerciseProps> = ({
     setLetterSources(prev => [...prev, index]);
     setAvailableLetters(prev => prev.filter((_, i) => i !== index));
 
-    if (newSelected.length === card.word.length) {
-      const isWordCorrect = newSelected.join('') === card.word;
-      setIsCorrect(isWordCorrect);
-      if (isWordCorrect) {
-        handleSuccess();
-      } else {
-        handleFailure();
+    // Check if we've formed the complete sequence
+    const targetLettersOnly = getTargetLettersSequence(emphasizedWords);
+    if (newSelected.length === targetLettersOnly.length) {
+      // Reconstruct the sequence with dots
+      let reconstructed = '';
+      let letterIndex = 0;
+      
+      for (let i = 0; i < emphasizedWords.length; i++) {
+        const word = emphasizedWords[i];
+        for (let j = 0; j < word.length; j++) {
+          reconstructed += newSelected[letterIndex];
+          letterIndex++;
+        }
+        if (i < emphasizedWords.length - 1) {
+          reconstructed += ' ... ';
+        }
       }
+      
+      // Add a small delay to let user see the completed word before auto-submission
+      setTimeout(() => {
+        const isWordCorrect = isAnswerCorrect(reconstructed);
+        setIsCorrect(isWordCorrect);
+        if (isWordCorrect) {
+          handleSuccess();
+        } else {
+          handleFailure();
+        }
+      }, 500); // 500ms delay to let user see the completed word
     }
   };
 
@@ -127,25 +200,106 @@ const ContextInputExercise: React.FC<LearningExerciseProps> = ({
     if (!cardHelpers.getAllExamples(card) || cardHelpers.getAllExamples(card).length === 0) return '';
     
     const sentence = cardHelpers.getFirstExample(card)?.sentence ?? "";
-    const matchWord = sentence.match(/<em>(.*?)<\/em>/);
-    if (!matchWord) return sentence.replace(/<\/?em>/g, '');
     
-    const cleanSentence = sentence.replace(/<\/?em>/g, '');
-    return cleanSentence.replace(
-      new RegExp(`\\b${matchWord[1]}\\b`, 'gi'), 
-      '_'.repeat(card.word.length)
-    );
+    if (showResult) {
+      // Show complete sentence with highlighted words
+      return formatSentence(sentence);
+    }
+    
+    // Show sentence with blanks
+    let processedSentence = sentence;
+    const emphasisMatches = sentence.match(/<em>(.*?)<\/em>/g);
+    if (emphasisMatches) {
+      emphasisMatches.forEach(match => {
+        const word = match.replace(/<\/?em>/g, '');
+        const underscores = '_'.repeat(word.length);
+        processedSentence = processedSentence.replace(match, underscores);
+      });
+    }
+    
+    return processedSentence.replace(/<\/?em>/g, '');
   };
 
-  const getContextTranslation = () => {
-    if (!cardHelpers.getAllExamples(card) || cardHelpers.getAllExamples(card).length === 0) return '';
-    return cardHelpers.getFirstMeaning(card).replace(/<\/?em>/g, '');
+  const formatSentence = (sentence: string) => {
+    if (!sentence) return "";
+    
+    if (sentence.includes('<em>')) {
+      return sentence.split(/(<em>.*?<\/em>)/).map((part, index) => {
+        if (part.startsWith('<em>') && part.endsWith('</em>')) {
+          const word = part.replace(/<\/?em>/g, '');
+          return (
+            <Text key={index} style={{ fontWeight: 'bold', color: '#333' }}>
+              {word}
+            </Text>
+          );
+        }
+        return <Text key={index}>{part}</Text>;
+      });
+    }
+
+    return sentence;
+  };
+
+  const renderLetterSlots = () => {
+    const slots = [];
+    let slotIndex = 0;
+    
+    for (let wordIndex = 0; wordIndex < emphasizedWords.length; wordIndex++) {
+      const word = emphasizedWords[wordIndex];
+      
+      // Add letters for this word
+      for (let letterIndex = 0; letterIndex < word.length; letterIndex++) {
+        slots.push(
+          <View 
+            key={`letter-${slotIndex}`}
+            style={[
+              styles.letterSlot,
+              showResult && (isAnswerCorrect(getReconstructedAnswer()) ? styles.correctWord : styles.wrongWord)
+            ]}
+          >
+            <Text style={styles.letterText}>
+              {selectedLetters[slotIndex] || ''}
+            </Text>
+          </View>
+        );
+        slotIndex++;
+      }
+      
+      // Add dots between words (but not after the last word)
+      if (wordIndex < emphasizedWords.length - 1) {
+        slots.push(
+          <View key={`dots-${wordIndex}`} style={styles.dotsContainer}>
+            <Text style={styles.dotsText}>...</Text>
+          </View>
+        );
+      }
+    }
+    
+    return slots;
+  };
+
+  const getReconstructedAnswer = () => {
+    let reconstructed = '';
+    let letterIndex = 0;
+    
+    for (let i = 0; i < emphasizedWords.length; i++) {
+      const word = emphasizedWords[i];
+      for (let j = 0; j < word.length; j++) {
+        if (selectedLetters[letterIndex]) {
+          reconstructed += selectedLetters[letterIndex];
+        }
+        letterIndex++;
+      }
+      if (i < emphasizedWords.length - 1) {
+        reconstructed += ' ... ';
+      }
+    }
+    
+    return reconstructed;
   };
 
   return (
-    <ExerciseContainer
-      correctAnswer={card.word}
-      showCorrect={showCorrectAnswer}>
+    <ExerciseContainer>
      
         {(!keyboardVisible || showLetterHelp) && (
           <ScrollView style={styles.contextScrollView}>
@@ -166,7 +320,7 @@ const ContextInputExercise: React.FC<LearningExerciseProps> = ({
               ]}
               value={inputWord}
               onChangeText={setInputWord}
-              placeholder="Type the word..."
+              placeholder={`Type word here:`}
               autoCapitalize="none"
               autoCorrect={false}
               editable={!showResult}
@@ -194,19 +348,7 @@ const ContextInputExercise: React.FC<LearningExerciseProps> = ({
         ) : (
           <View style={styles.letterSelectContainer}>
             <View style={styles.selectedLettersContainer}>
-              {Array.from({ length: card.word.length }).map((_, index) => (
-                <View 
-                  key={index} 
-                  style={[
-                    styles.letterSlot,
-                    showResult && (selectedLetters.join('') === card.word ? styles.correctWord : styles.wrongWord)
-                  ]}
-                >
-                  <Text style={styles.letterText}>
-                    {selectedLetters[index] || ''}
-                  </Text>
-                </View>
-              ))}
+              {renderLetterSlots()}
             </View>
 
             {selectedLetters.length > 0 && !showResult && (
@@ -238,15 +380,16 @@ const ContextInputExercise: React.FC<LearningExerciseProps> = ({
                 </TouchableOpacity>
               ))}
             </View>
-          </View>
-        )}
 
-        {(!keyboardVisible || showLetterHelp) && (
-          <ScrollView style={styles.translationScrollView}>
-            <Text style={[learningStyles.contextText, styles.centeredText]}>
-              {getContextTranslation()}
-            </Text>
-          </ScrollView>
+            <View style={styles.backButtonContainer}>
+              <TouchableOpacity 
+                style={styles.backButton}
+                onPress={() => setShowLetterHelp(false)}
+              >
+                <Text style={styles.buttonText}>Back to Typing</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         )}
 
     </ExerciseContainer>
@@ -299,9 +442,11 @@ const styles = StyleSheet.create({
     maxHeight: 100,
     marginBottom: 20,
   },
-  translationScrollView: {
-    maxHeight: 80,
-    marginTop: 20,
+  translationText: {
+    marginTop: 10,
+    marginBottom: 10,
+    fontSize: 14,
+    color: '#666',
   },
   centeredText: {
     textAlign: 'center',
@@ -343,6 +488,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
+    alignItems: 'center',
     gap: 8,
     marginVertical: 20,
   },
@@ -361,12 +507,23 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
   },
+  dotsContainer: {
+    paddingHorizontal: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dotsText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#666',
+  },
   availableLettersContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
     gap: 8,
     marginTop: 20,
+    marginBottom: 20,
   },
   letterButton: {
     width: 36,
@@ -380,6 +537,18 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
+  },
+  backButtonContainer: {
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  backButton: {
+    backgroundColor: '#95a5a6',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    minWidth: 140,
   },
   correctWord: {
     backgroundColor: 'rgba(46, 204, 113, 0.2)',

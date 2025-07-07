@@ -14,10 +14,12 @@ const ContextExercise: React.FC<LearningExerciseProps> = ({
 }) => {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [showResult, setShowResult] = useState(false);
-  const [options, setOptions] = useState<string[]>([]); // Add this line
+  const [options, setOptions] = useState<string[]>([]);
 
   // Add this useEffect
   useEffect(() => {
+    setSelectedOption(null);
+    setShowResult(false);
     // Get 3 random words from other cards
     const otherOptions = otherCards
       .filter(c => c.id !== card.id)
@@ -27,30 +29,47 @@ const ContextExercise: React.FC<LearningExerciseProps> = ({
     // Combine with correct answer and shuffle
     const shuffledOptions = [card.word, ...otherOptions]
       .sort(() => Math.random() - 0.5);
-      
+        
     setOptions(shuffledOptions);
   }, [card.id]); // Only regenerate when card changes
 
   const handleOptionPress = (option: string) => {
     setSelectedOption(option);
     setShowResult(true);
-    
+      
     setTimeout(() => {
       if (option === card.word) {
         onSuccess();
       } else {
         onFailure();
       }
-      setSelectedOption(null);
-      setShowResult(false);
+
     }, 1000);
   };
 
   const getSentenceWithBlank = (sentence: string, word: string): string => {
-    // First remove <em> tags if they exist
-    const cleanSentence = sentence.replace(/<\/?em>/g, '');
-    // Then replace the word with underscores
-    return cleanSentence.replace(new RegExp(`\\b${word}\\b`, 'gi'), '_____');
+    // Replace words that are between <em> tags with underscores
+    return sentence.replace(/<em>(.*?)<\/em>/g, '_____');
+  };
+
+  const formatSentence = (sentence: string) => {
+    if (!sentence) return "";
+    
+    if (sentence.includes('<em>')) {
+      return sentence.split(/(<em>.*?<\/em>)/).map((part, index) => {
+        if (part.startsWith('<em>') && part.endsWith('</em>')) {
+          const word = part.replace(/<\/?em>/g, '');
+          return (
+            <Text key={index} style={{ fontWeight: 'bold', color: '#333' }}>
+              {word}
+            </Text>
+          );
+        }
+        return <Text key={index}>{part}</Text>;
+      });
+    }
+
+    return sentence;
   };
 
   if (!cardHelpers.getAllExamples(card) || cardHelpers.getAllExamples(card).length === 0) {
@@ -64,15 +83,13 @@ const ContextExercise: React.FC<LearningExerciseProps> = ({
   }
 
   return (
-    <ExerciseContainer>       
+    <ExerciseContainer>
       <Text style={learningStyles.contextText}>
-        {getSentenceWithBlank(cardHelpers.getFirstExample(card)?.sentence ?? '', card.word)}
+        {showResult ? 
+          formatSentence(cardHelpers.getFirstExample(card)?.sentence ?? '') :
+          getSentenceWithBlank(cardHelpers.getFirstExample(card)?.sentence ?? '', card.word)
+        }
       </Text>
-      <View style={learningStyles.translationContainer}>
-        <Text style={learningStyles.contextText}>
-          {cardHelpers.getFirstMeaning(card).replace(/<\/?em>/g, '')}
-        </Text>
-      </View>
       <View style={learningStyles.optionsContainer}>
         {options.map((option, index) => {
           const isSelected = selectedOption === option;

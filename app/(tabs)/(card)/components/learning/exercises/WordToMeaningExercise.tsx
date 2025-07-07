@@ -71,6 +71,8 @@ const WordToMeaningExercise: React.FC<LearningExerciseProps> = ({
   const [options, setOptions] = useState<string[]>([]);
 
   useEffect(() => {
+    setSelectedOption(null);
+    setShowResult(false);
     const otherOptions = otherCards
       .filter(c => c.id !== card.id)
       .map(c => cardHelpers.getFirstMeaning(c))
@@ -93,8 +95,9 @@ const WordToMeaningExercise: React.FC<LearningExerciseProps> = ({
       } else {
         onFailure();
       }
-      setSelectedOption(null);
-      setShowResult(false);
+      // Removed the lines that clear the selection and result
+      // setSelectedOption(null);
+      // setShowResult(false);
     }, 1000);
   };
 
@@ -129,7 +132,7 @@ const WordToMeaningExercise: React.FC<LearningExerciseProps> = ({
             href={{
               pathname: "/wordInfo",
               params: {
-                content: JSON.stringify(Transform.fromCardToWord(card)),
+                content: JSON.stringify(card.id),
                 added: 'true'
               }
             }}

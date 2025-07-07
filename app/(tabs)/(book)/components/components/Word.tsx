@@ -169,12 +169,12 @@ const Word: React.FC<WordProps> = memo(({
 
 
     const wordToEmmit: EmittedWord = {
-      word: currentPhrase,
-      translation: translationPhrase,
+      word: translationPhrase,
+      translation: currentPhrase,
       bookTitle: database.getDbName(),
       sentenceId: sentence.id 
     }
-    
+    console.log("HEEEEEEEEE1")
     SlidePanelEvents.emit(wordToEmmit, true);
   };
 
@@ -191,7 +191,7 @@ const Word: React.FC<WordProps> = memo(({
       bookTitle: database.getDbName(),
       sentenceId: sentence.id 
     }
-    
+    console.log("HEEEEEEEEE2")
     SlidePanelEvents.emit(wordToEmmit, true);
   };
 
@@ -212,14 +212,15 @@ const Word: React.FC<WordProps> = memo(({
   const handleTranslatedSingleWord = async (updatedWord: UpdatedWord): Promise<void> => {
     // For translated words, we show the original
     const cleanedWord = cleanWord(updatedWord.wordLinkedWordMirror.join(' '));
+    console.log("lets check " + cleanedWord)
 
     const wordToEmmit: EmittedWord = {
       word: cleanedWord,
-      translation: updatedWord.word.toLowerCase() ||  await getMissedTranslation(cleanedWord),
+      translation: cleanWord(updatedWord.word.toLowerCase()) ||  await getMissedTranslation(cleanedWord),
       bookTitle: database.getDbName(),
       sentenceId: sentence.id 
     }
-    
+    console.log("HEEEEEEEEE3")
     SlidePanelEvents.emit(wordToEmmit, true);
   };
 
@@ -238,7 +239,7 @@ const Word: React.FC<WordProps> = memo(({
       bookTitle: database.getDbName(),
       sentenceId: sentence.id 
     }
-    
+    console.log("HEEEEEEEEE4")
     SlidePanelEvents.emit(wordToEmmit, true);
   };
 
