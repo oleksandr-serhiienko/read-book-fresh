@@ -63,6 +63,7 @@ const styles = {
 
 const ContextWithBlankOriginal: FC<CardProps> = ({ card, onShowAnswer, contextId, isFlipping }) => {
   const [showHints, setShowHints] = useState(false);
+  
   useEffect(() => {
     setShowHints(false);
   }, [card.word]); // Reset when word changes
@@ -86,27 +87,48 @@ const ContextWithBlankOriginal: FC<CardProps> = ({ card, onShowAnswer, contextId
     selectedExample = allExamples[0];
   }
   
-  const originalSentence = selectedExample.sentence?.replace(/<\/?em>/g, '') || '';
-  const hints = getWordHints(card.word);
+  const originalSentence = selectedExample.sentence || '';
+  
+  // Function to replace text between <em></em> tags with underscores
+  const renderTextWithBlanks = (text: string) => {
+    return text.replace(/<em>(.*?)<\/em>/g, (match, content) => {
+      return '_'.repeat(content.length);
+    });
+  };
+  
+  // Extract the text between <em></em> tags for hints
+  const getEmphasisedText = (text: string) => {
+    const matches = text.match(/<em>(.*?)<\/em>/g);
+    if (matches) {
+      // Extract content from all matches and join with space
+      const contents = matches.map(match => match.replace(/<\/?em>/g, ''));
+      return contents.join(' ');
+    }
+    return card.word;
+  };
+  
+  const emphasisedText = getEmphasisedText(originalSentence);
+  const hints = getWordHints(emphasisedText);
   
   const renderHighlightedText = (text: string) => {
     return text.replace(/<\/?em>/g, '');
   };
+  
   return (
     <View style={styles.cardContent}>
       <Text style={styles.contextText}>
-        {originalSentence.replace(card.word, '_'.repeat(card.word.length))}
+        {renderTextWithBlanks(originalSentence)}
       </Text>
-
-      <TouchableOpacity 
+      
+      <TouchableOpacity
         style={styles.showHintsButton}
         onPress={() => setShowHints(!showHints)}
       >
         <Text style={styles.showHintsText}>
-          {showHints ? 'Hide Hints' : 'Show Hints (?)'} 
+          {showHints ? 'Hide Hints' : 'Show Hints (?)'}
         </Text>
       </TouchableOpacity>
-
+      
       {showHints && (
         <View style={styles.hintsContainer}>
           {hints.map((letter: string, index: number) => (
@@ -122,9 +144,9 @@ const ContextWithBlankOriginal: FC<CardProps> = ({ card, onShowAnswer, contextId
           {renderHighlightedText(selectedExample.translation ?? "")}
         </Text>
       </View>
-
+      
       {!isFlipping && onShowAnswer && (
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.showAnswerButton}
           onPress={onShowAnswer}
         >

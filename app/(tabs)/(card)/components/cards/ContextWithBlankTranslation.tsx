@@ -67,39 +67,58 @@ const styles = {
 
 const ContextWithBlankTranslation: FC<CardProps> = ({ card, onShowAnswer, contextId, isFlipping }) => {
   const [showHints, setShowHints] = useState(false);
+  
   useEffect(() => {
-    setShowHints(false);}, [card.word]); // Reset when word changes
-      const allExamples = cardHelpers.getAllExamples(card);
-      if (allExamples.length === 0) return null;
+    setShowHints(false);
+  }, [card.word]); // Reset when word changes
+  
+  const allExamples = cardHelpers.getAllExamples(card);
+  if (allExamples.length === 0) return null;
 
-      // Find the example that matches the contextId (which is now a hash)
-      let selectedExample: Example | null = null;
-      for (const example of allExamples) {
-        const hash = createExampleHashSync(example.sentence || '', example.translation || '');
-        if (hash === contextId) {
-          selectedExample = example;
-          break;
-        }
-      }
+  // Find the example that matches the contextId (which is now a hash)
+  let selectedExample: Example | null = null;
+  for (const example of allExamples) {
+    const hash = createExampleHashSync(example.sentence || '', example.translation || '');
+    if (hash === contextId) {
+      selectedExample = example;
+      break;
+    }
+  }
 
-      // If no match found, use the first example
-      if (!selectedExample) {
-        selectedExample = allExamples[0];
-      }
+  // If no match found, use the first example
+  if (!selectedExample) {
+    selectedExample = allExamples[0];
+  }
 
-      if (!selectedExample) return null;
+  if (!selectedExample) return null;
 
-      const originalText = selectedExample.translation || '';
-      const translationSentence = originalText.replace(/<\/?em>/g, '');
+  const originalTranslation = selectedExample.translation || '';
+  
+  // Function to replace text between <em></em> tags with underscores
+  const renderTextWithBlanks = (text: string) => {
+    return text.replace(/<em>(.*?)<\/em>/g, (match, content) => {
+      return '_'.repeat(content.length);
+    });
+  };
+  
+  // Extract the text between <em></em> tags for hints
+  const getEmphasisedText = (text: string) => {
+    const matches = text.match(/<em>(.*?)<\/em>/g);
+    if (matches) {
+      // Extract content from all matches and join with space
+      const contents = matches.map(match => match.replace(/<\/?em>/g, ''));
+      return contents.join(' ');
+    }
+    
+    // Fallback to existing logic if no <em> tags found
+    const allMeanings = cardHelpers.getAllMeanings(card);
+    return allMeanings.find(meaning => text.toLowerCase().includes(meaning.toLowerCase())) 
+      ?? allMeanings[0] 
+      ?? '';
+  };
 
-      // Get all meanings from the card
-      const allMeanings = cardHelpers.getAllMeanings(card);
-      const wordToReplace = originalText.match(/<em>(.*?)<\/em>/)?.[1] 
-        ?? allMeanings.find(meaning => originalText.toLowerCase().includes(meaning.toLowerCase())) 
-        ?? allMeanings[0] 
-        ?? '';
-
-      const hints = getWordHints(wordToReplace);
+  const emphasisedText = getEmphasisedText(originalTranslation);
+  const hints = getWordHints(emphasisedText);
   
   return (
     <View style={styles.cardContent}>
@@ -109,7 +128,7 @@ const ContextWithBlankTranslation: FC<CardProps> = ({ card, onShowAnswer, contex
       
       <View style={styles.translationContainer}>
         <Text style={styles.contextText}>
-          {translationSentence.replace(wordToReplace, '_'.repeat(wordToReplace.length))}
+          {renderTextWithBlanks(originalTranslation)}
         </Text>
       </View>
 
