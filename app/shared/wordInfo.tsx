@@ -1,12 +1,26 @@
-// Updated wordInfo.tsx - Using useRef to store translation data immediately
+// Enhanced wordInfo.tsx - Merging features from both versions
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import { ResponseTranslation } from '@/components/reverso/reverso';
 import { EmittedWord } from '@/app/(tabs)/(book)/components/events/slidePanelEvents';
-import { Database, Card, HistoryEntry, Word } from '@/components/db/database';
+import { Database, Card, HistoryEntry, Word, Translation, Example } from '@/components/db/database';
 import { useLanguage } from '@/app/languageSelector';
 import * as Speech from 'expo-speech';
-import { ChevronDown, ChevronUp, Clock, Check, Volume2, Volume1, Pencil, ArrowRight, BarChart2 } from 'lucide-react-native';
+import { 
+  ChevronDown, 
+  ChevronUp, 
+  Clock, 
+  Check, 
+  Volume2, 
+  Volume1, 
+  Pencil, 
+  ArrowRight, 
+  BarChart2,
+  Info,
+  BookOpen,
+  MessageSquare,
+  ChevronRight
+} from 'lucide-react-native';
 import languages from '@/components/reverso/languages/entities/languages';
 import voices from '@/components/reverso/languages/voicesTranslate';
 import { BookDatabase } from '@/components/db/bookDatabase';
@@ -34,6 +48,11 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
   const [isLoading, setIsLoading] = useState(true);
   const [wordData, setWordData] = useState<Word | null>(null);
   const [fullTranslation, setFullTranslation] = useState<ResponseTranslation | null>(null);
+  
+  // Expanded states for collapsible sections
+  const [expandedTranslations, setExpandedTranslations] = useState<Set<number>>(new Set());
+  const [expandedExamples, setExpandedExamples] = useState<Set<string>>(new Set());
+  const [showWordDetails, setShowWordDetails] = useState(false);
   
   // ✅ Add ref to store translation data immediately
   const translationRef = useRef<ResponseTranslation | null>(null);
@@ -377,6 +396,28 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
     });
   };
 
+  const formatAdditionalInfo = (info: any): string => {
+    if (typeof info === 'string') {
+      // Replace semicolon + space with new line, then any remaining semicolons
+      return info.replace(/;\s+/g, '\n').replace(/;/g, '\n');
+    }
+    if (typeof info === 'object' && info !== null) {
+      let jsonString = JSON.stringify(info);
+      
+      // Remove all { } and " characters
+      jsonString = jsonString.replace(/[{}\"]/g, '');
+      
+      // Add whitespace after colons
+      jsonString = jsonString.replace(/:/g, ': ');
+      
+      // Replace commas and semicolons with spaces, then with new lines
+      jsonString = jsonString.replace(/,\s+/g, '\n').replace(/[,;]/g, '\n');
+      
+      return jsonString;
+    }
+    return String(info);
+  };
+
   const handleAddToDictionary = async () => {
     // ✅ Use ref data or fallback to state
     const originalWord = translationRef.current?.Original || fullTranslation?.Original;
@@ -395,6 +436,26 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
       // After adding to dictionary, check for history again
       await checkForHistory(originalWord);
     }
+  };
+
+  const toggleTranslationExpansion = (index: number) => {
+    const newExpanded = new Set(expandedTranslations);
+    if (newExpanded.has(index)) {
+      newExpanded.delete(index);
+    } else {
+      newExpanded.add(index);
+    }
+    setExpandedTranslations(newExpanded);
+  };
+
+  const toggleExampleExpansion = (key: string) => {
+    const newExpanded = new Set(expandedExamples);
+    if (newExpanded.has(key)) {
+      newExpanded.delete(key);
+    } else {
+      newExpanded.add(key);
+    }
+    setExpandedExamples(newExpanded);
   };
 
   // Loading state
@@ -416,48 +477,211 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
     );
   }
 
-  const formattedTranslations = fullTranslation.Translations.slice(0, 5).map(t =>
-    `${t.word}${t.pos ? ` • ${t.pos}` : ''}`
-  );
-  const context = fullTranslation.Contexts.slice(0, 5);
-
-  const renderComment = () => {
-    if (!isAdded) return null;
+  const renderWordDetails = () => {
+    if (!wordData) return null;
 
     return (
-      <View style={styles.commentContainer}>
-        {isEditing ? (
-          <View style={styles.editContainer}>
-            <TextInput
-              style={styles.commentInput}
-              value={comment}
-              onChangeText={setComment}
-              multiline
-              placeholder="Add a comment..."
-            />
-            <TouchableOpacity 
-              style={styles.iconButton}
-              onPress={handleAddComment}
-              disabled={isSaving}
-            >
-              <Check size={16} color="#007AFF" />
-            </TouchableOpacity>
+      <View style={styles.section}>
+        <TouchableOpacity 
+          style={styles.sectionHeader}
+          onPress={() => setShowWordDetails(!showWordDetails)}
+        >
+          <View style={styles.wordDetailsHeaderContent}>
+            <Text style={styles.sectionTitle}>Word Details</Text>
+            {wordData.baseForm && !showWordDetails && (
+              <Text style={styles.baseFormPreview}>{formatAdditionalInfo(wordData.baseForm)}</Text>
+            )}
           </View>
-        ) : (
-          <View style={styles.commentView}>
-            <Text style={styles.commentText}>
-              {comment || 'No comment'}
-            </Text>
-            <TouchableOpacity 
-              style={styles.iconButton}
-              onPress={() => setIsEditing(true)}
-            >
-              <Pencil size={16} color="#007AFF" />
-            </TouchableOpacity>
+          {showWordDetails ? 
+            <ChevronUp size={20} color="#666" /> : 
+            <ChevronDown size={20} color="#666" />
+          }
+        </TouchableOpacity>
+        
+        {showWordDetails && (
+          <View style={styles.sectionContent}>
+            {wordData.baseForm && (
+              <View style={styles.wordDetailItem}>
+                <Text style={styles.wordDetailLabel}>Base Form</Text>
+                <Text style={styles.wordDetailValue}>
+                  {formatAdditionalInfo(wordData.baseForm)}
+                </Text>
+              </View>
+            )}
+            
+            {wordData.additionalInfo && (
+              <View style={styles.wordDetailItem}>
+                <Text style={styles.wordDetailLabel}>Additional Info</Text>
+                <Text style={styles.wordDetailValue}>
+                  {formatAdditionalInfo(wordData.additionalInfo)}
+                </Text>
+              </View>
+            )}
+
+            {isAdded && (
+              <View style={styles.wordDetailItem}>
+                <Text style={styles.wordDetailLabel}>Comment</Text>
+                {isEditing ? (
+                  <View style={styles.editContainer}>
+                    <TextInput
+                      style={styles.commentInput}
+                      value={comment}
+                      onChangeText={setComment}
+                      multiline
+                      placeholder="Add a comment..."
+                    />
+                    <TouchableOpacity 
+                      style={styles.iconButton}
+                      onPress={handleAddComment}
+                      disabled={isSaving}
+                    >
+                      <Check size={16} color="#007AFF" />
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View style={styles.commentView}>
+                    <Text style={styles.wordDetailValue}>
+                      {comment || 'No comment'}
+                    </Text>
+                    <TouchableOpacity 
+                      style={styles.iconButton}
+                      onPress={() => setIsEditing(true)}
+                    >
+                      <Pencil size={16} color="#007AFF" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            )}
           </View>
         )}
       </View>
     );
+  };
+
+  const renderStructuredTranslations = () => {
+    if (!wordData?.translations) return null;
+
+    return (
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Translations</Text>
+        
+        {wordData.translations.map((translation: Translation, index: number) => (
+          <View key={index} style={styles.translationItem}>
+            <TouchableOpacity 
+              style={styles.translationHeader}
+              onPress={() => toggleTranslationExpansion(index)}
+            >
+              <View style={styles.translationMainInfo}>
+                <Text style={styles.originalText}>
+                  {translation.meaning || 'No meaning provided'}
+                  {translation.type && <Text style={styles.translationType}> • {translation.type}</Text>}
+                </Text>
+              </View>
+              {expandedTranslations.has(index) ? 
+                <ChevronUp size={18} color="#666" /> : 
+                <ChevronDown size={18} color="#666" />
+              }
+            </TouchableOpacity>
+            
+            {expandedTranslations.has(index) && (
+              <View style={styles.translationDetails}>
+                {translation.additionalInfo && (
+                  <View style={styles.additionalInfoContainer}>
+                    <Text style={styles.additionalInfoLabel}>Additional Information:</Text>
+                    <Text style={styles.translatedText}>
+                      {formatAdditionalInfo(translation.additionalInfo)}
+                    </Text>
+                  </View>
+                )}
+                
+                {translation.examples && translation.examples.length > 0 && (
+                  <View style={styles.examplesContainer}>
+                    <Text style={styles.examplesTitle}>
+                      Examples
+                    </Text>
+                    {translation.examples.map((example: Example, exampleIndex: number) => {
+                      return (
+                        <View key={exampleIndex} style={styles.contextItem}>
+                          <Text style={styles.originalText}>
+                            {renderTextWithBoldEmphasis(example.sentence || 'No sentence provided')}
+                          </Text>
+                          {example.translation && (
+                            <Text style={styles.translatedText}>
+                              {renderTextWithBoldEmphasis(example.translation)}
+                            </Text>
+                          )}
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+        ))}
+      </View>
+    );
+  };
+
+  const renderLegacyTranslations = () => {
+    if (!fullTranslation || wordData?.translations) return null;
+
+    const formattedTranslations = fullTranslation.Translations.slice(0, 5);
+
+    return (
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Translations</Text>
+        {formattedTranslations.map((translation, index) => (
+          <View key={index} style={styles.translationItem}>
+            <TouchableOpacity 
+              style={styles.translationHeader}
+              onPress={() => toggleTranslationExpansion(index)}
+            >
+              <Text style={styles.originalText}>
+                {`${translation.word}${translation.pos ? ` • ${translation.pos}` : ''}`}
+              </Text>
+              {expandedTranslations.has(index) ? 
+                <ChevronUp size={18} color="#666" /> : 
+                <ChevronDown size={18} color="#666" />
+              }
+            </TouchableOpacity>
+            
+            {expandedTranslations.has(index) && (
+              <Text style={styles.translatedText}>
+                Translation details would go here
+              </Text>
+            )}
+          </View>
+        ))}
+      </View>
+    );
+  };
+
+  const renderLegacyContext = () => {
+    if (!fullTranslation) return null;
+
+    const context = fullTranslation.Contexts.slice(0, 5);
+
+    return (
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Context</Text>
+        {context.map((item, index) => (
+          <View key={index} style={styles.contextItem}>
+            <Text style={styles.originalText}>
+              {renderTextWithBoldEmphasis(item.original)}
+            </Text>
+            <Text style={styles.translatedText}>
+              {renderTextWithBoldEmphasis(item.translation)}
+            </Text>
+          </View>
+        ))}
+      </View>
+    );
+  };
+
+  const renderComment = () => {
+    return null; // Comment is now moved to Word Details section
   };
 
   const renderHistoryButton = () => {
@@ -564,29 +788,11 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
         </TouchableOpacity>
       )}
       
-      {renderComment()}
       
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Translations</Text>
-        {formattedTranslations.map((translation, index) => (
-          <Text key={index} style={styles.translationItem}>{translation}</Text>
-        ))}
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Context</Text>
-        {context.map((item, index) => (
-          <View key={index} style={styles.contextItem}>
-            <Text style={styles.originalText}>
-              {renderTextWithBoldEmphasis(item.original)}
-            </Text>
-            <Text style={styles.translatedText}>
-              {renderTextWithBoldEmphasis(item.translation)}
-            </Text>
-          </View>
-        ))}
-      </View>
-      
+      {renderWordDetails()}
+      {renderStructuredTranslations()}
+      {renderLegacyTranslations()}
+      {renderLegacyContext()}
       {renderHistoryButton()}
       {renderHistoryList()}
     </ScrollView>
@@ -652,6 +858,11 @@ const styles = StyleSheet.create({
     padding: 10,
     backgroundColor: 'white',
     borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   editContainer: {
     flexDirection: 'row',
@@ -724,16 +935,117 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 10,
     color: '#333',
   },
-  translationItem: {
+  sectionContent: {
+    marginTop: 10,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    marginBottom: 8,
+    alignItems: 'flex-start',
+  },
+  detailLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+    width: 100,
+    marginRight: 10,
+  },
+  prominentDetailValue: {
     fontSize: 16,
+    color: '#000',
+    flex: 1,
+    lineHeight: 24,
+    fontWeight: '500',
+  },
+  translationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 5,
-    color: '#555',
+  },
+  translationMainInfo: {
+    flex: 1,
+  },
+  translationType: {
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
+  },
+  translationDetails: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  additionalInfoContainer: {
+    marginBottom: 12,
+  },
+  additionalInfoLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 4,
+  },
+  examplesContainer: {
+    marginTop: 8,
+  },
+  examplesTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  wordDetailItem: {
+    marginBottom: 12,
+    backgroundColor: '#f8f9fa',
+    padding: 12,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#e9ecef',
+  },
+  wordDetailLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6c757d',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  wordDetailValue: {
+    fontSize: 15,
+    color: '#495057',
+    lineHeight: 22,
+  },
+  wordDetailsHeaderContent: {
+    flex: 1,
+    flexDirection: 'column',
+  },
+  baseFormPreview: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
+  exampleItem: {
+    marginBottom: 8,
+  },
+  exampleHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 5,
   },
   contextItem: {
     marginBottom: 10,
@@ -741,10 +1053,15 @@ const styles = StyleSheet.create({
     borderLeftColor: '#007AFF',
     paddingLeft: 10,
   },
+  translationItem: {
+    marginBottom: 10,
+    paddingLeft: 0,
+  },
   originalText: {
     fontSize: 16,
     color: '#333',
     marginBottom: 5,
+    flex: 1,
   },
   translatedText: {
     fontSize: 14,
@@ -758,7 +1075,12 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 10,
     alignItems: 'center',
-    marginBottom: 10
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   addButtonDisabled: {
     backgroundColor: '#B0C4DE',
@@ -776,6 +1098,11 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 10,
     marginVertical: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   buttonIcon: {
     marginRight: 8,
