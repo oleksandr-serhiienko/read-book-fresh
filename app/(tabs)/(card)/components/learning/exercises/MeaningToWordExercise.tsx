@@ -57,38 +57,13 @@ const MeaningToWordExercise: React.FC<LearningExerciseProps> = ({
   const handleOptionPress = (option: string) => {
     setSelectedOption(option);
     setShowResult(true);
-    
-    setTimeout(() => {
-      if (option === card.word) {
-        onSuccess();
-      } else {
-        onFailure();
-      }
-      
-    }, 1000);
+       
+    if (option === card.word) {
+      onSuccess();
+    } else {
+      onFailure();
+    }        
   };
-
-  const formatSentence = (sentence: string) => {
-    if (!sentence) return "";
-    
-    if (sentence.includes('<em>')) {
-      return sentence.split(/(<em>.*?<\/em>)/).map((part, index) => {
-        if (part.startsWith('<em>') && part.endsWith('</em>')) {
-          const word = part.replace(/<\/?em>/g, '');
-          return (
-            <Text key={index} style={{ fontWeight: 'bold', color: '#333' }}>
-              {word}
-            </Text>
-          );
-        }
-        return <Text key={index}>{part}</Text>;
-      });
-    }
-
-    return sentence;
-  };
-
-  const hasExampleSentence = cardHelpers.getAllExamples(card) && cardHelpers.getAllExamples(card).length > 0;
 
   return (
     <ExerciseContainer>    

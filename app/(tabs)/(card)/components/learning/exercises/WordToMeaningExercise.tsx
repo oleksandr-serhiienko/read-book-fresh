@@ -88,17 +88,12 @@ const WordToMeaningExercise: React.FC<LearningExerciseProps> = ({
     if (showResult) return;
     setSelectedOption(option);
     setShowResult(true);
-    
-    setTimeout(() => {
-      if (option === cardHelpers.getFirstMeaning(card)) {
+
+     if (option === cardHelpers.getFirstMeaning(card)) {
         onSuccess();
       } else {
         onFailure();
       }
-      // Removed the lines that clear the selection and result
-      // setSelectedOption(null);
-      // setShowResult(false);
-    }, 1000);
   };
 
   const formatSentence = (sentence: string) => {

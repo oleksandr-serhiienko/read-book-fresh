@@ -163,6 +163,7 @@ export default function LearningScreen() {
   
     // Wait for speech to complete before moving to next
     await handleSpeak(currentCard.word);
+    
     moveToNext();
   };
 
