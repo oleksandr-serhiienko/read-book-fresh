@@ -29,7 +29,8 @@ export default function LearningScreen() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const [showCard, setShowCard] = useState(true);
-  const flipAnimation = useRef(new Animated.Value(0)).current;
+  const [slideResult, setSlideResult] = useState<boolean | null>(null);
+  const slideAnimation = useRef(new Animated.Value(0)).current;
   const languageKey = sourceLanguage.toLowerCase() as keyof typeof languages;
 
   const CARDS_PER_SESSION = 5; // Number of cards to show per exercise type
@@ -166,7 +167,7 @@ export default function LearningScreen() {
     // Wait for speech to complete before moving to next
     await handleSpeak(currentCard.word);
     
-    moveToNext();
+    moveToNext(true); // Pass true for correct answer
   };
 
   const handleFailure = async () => {
@@ -191,23 +192,27 @@ export default function LearningScreen() {
       await database.updateCard(currentCard);
     }
     await handleSpeak(currentCard.word);
-    moveToNext();
+    moveToNext(false); // Pass false for incorrect answer
   };
 
 
-  const moveToNext = () => {
+  const moveToNext = (isCorrect: boolean) => {
     if (!currentSession) return;
     
-    // Hide the card and start flip animation
+    // Hide the card and start slide animation
     setShowCard(false);
+    setSlideResult(isCorrect);
     
-    // Start flip animation
-    Animated.timing(flipAnimation, {
-      toValue: 1,
+    // Slide right for correct (positive), left for incorrect (negative)
+    const slideDirection = isCorrect ? 1 : -1;
+    
+    // Start slide animation
+    Animated.timing(slideAnimation, {
+      toValue: slideDirection,
       duration: 300,
       useNativeDriver: true,
     }).start(() => {
-      // After flip completes, update session
+      // After slide completes, update session
       const nextIndex = currentSession.currentIndex + 1;
       
       if (nextIndex >= currentSession.cards.length) {
@@ -252,9 +257,10 @@ export default function LearningScreen() {
         });
       }
       
-      // Show the new card and reset flip animation
+      // Show the new card and reset slide animation
       setShowCard(true);
-      flipAnimation.setValue(0);
+      setSlideResult(null);
+      slideAnimation.setValue(0);
     });
   };
 
@@ -312,24 +318,36 @@ export default function LearningScreen() {
           />
         )}
         
-        {/* Flip animation overlay */}
-        <Animated.View
-          style={[
-            styles.flipOverlay,
-            {
-              opacity: flipAnimation,
-              transform: [{
-                rotateY: flipAnimation.interpolate({
-                  inputRange: [0, 0.5, 1],
-                  outputRange: ['0deg', '90deg', '0deg']
-                })
-              }]
-            }
-          ]}
-          pointerEvents="none"
-        >
-          <View style={styles.flipCard} />
-        </Animated.View>
+        {/* Slide animation overlay */}
+        {slideResult !== null && (
+          <Animated.View
+            style={[
+              styles.slideOverlay,
+              {
+                opacity: slideAnimation.interpolate({
+                  inputRange: [-1, 0, 1],
+                  outputRange: [1, 0, 1]
+                }),
+                transform: [{
+                  translateX: slideAnimation.interpolate({
+                    inputRange: [-1, 0, 1],
+                    outputRange: [-300, 0, 300]
+                  })
+                }]
+              }
+            ]}
+            pointerEvents="none"
+          >
+            <View style={[
+              styles.slideCard,
+              { backgroundColor: slideResult ? '#4CAF50' : '#F44336' }
+            ]}>
+              <Text style={styles.slideIcon}>
+                {slideResult ? '✓' : '✗'}
+              </Text>
+            </View>
+          </Animated.View>
+        )}
       </View>
     </View>
   );
@@ -379,7 +397,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  flipOverlay: {
+  slideOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
@@ -389,11 +407,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 1000,
   },
-  flipCard: {
-    backgroundColor: '#9E9E9E',
+  slideCard: {
     borderRadius: 10,
     width: '90%',
     height: '80%',
+    justifyContent: 'center',
+    alignItems: 'center',
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
@@ -402,5 +421,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
+  },
+  slideIcon: {
+    fontSize: 80,
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });
