@@ -1,6 +1,6 @@
 // learning.tsx
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { Link, useLocalSearchParams } from 'expo-router';
 import { Card, cardHelpers, database } from '@/components/db/database';
 import { useLanguage } from '@/app/languageSelector';
@@ -28,6 +28,8 @@ export default function LearningScreen() {
   const { sourceLanguage, targetLanguage } = useLanguage();
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
+  const [showCard, setShowCard] = useState(true);
+  const flipAnimation = useRef(new Animated.Value(0)).current;
   const languageKey = sourceLanguage.toLowerCase() as keyof typeof languages;
 
   const CARDS_PER_SESSION = 5; // Number of cards to show per exercise type
@@ -195,49 +197,65 @@ export default function LearningScreen() {
 
   const moveToNext = () => {
     if (!currentSession) return;
-  
-    const nextIndex = currentSession.currentIndex + 1;
     
-    if (nextIndex >= currentSession.cards.length) {
-      const exerciseTypes: LearningType[] = [
-        'wordToMeaning',
-        'meaningToWord',
-        'context',
-        'contextLetters'
-      ];
-      const currentTypeIndex = exerciseTypes.indexOf(currentSession.type);
+    // Hide the card and start flip animation
+    setShowCard(false);
+    
+    // Start flip animation
+    Animated.timing(flipAnimation, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      // After flip completes, update session
+      const nextIndex = currentSession.currentIndex + 1;
       
-      if (currentTypeIndex >= exerciseTypes.length - 1) {
-        // Get remaining learning cards
-        const remainingCards = allCards.filter(card => card.info?.status === 'learning');
-        if (remainingCards.length > 0) {
-          // Shuffle remaining cards
-          const shuffledRemaining = [...remainingCards].sort(() => Math.random() - 0.5);
-          setAllCards(shuffledRemaining);
+      if (nextIndex >= currentSession.cards.length) {
+        const exerciseTypes: LearningType[] = [
+          'wordToMeaning',
+          'meaningToWord',
+          'context',
+          'contextLetters'
+        ];
+        const currentTypeIndex = exerciseTypes.indexOf(currentSession.type);
+        
+        if (currentTypeIndex >= exerciseTypes.length - 1) {
+          // Get remaining learning cards
+          const remainingCards = allCards.filter(card => card.info?.status === 'learning');
+          if (remainingCards.length > 0) {
+            // Shuffle remaining cards
+            const shuffledRemaining = [...remainingCards].sort(() => Math.random() - 0.5);
+            setAllCards(shuffledRemaining);
+            setCurrentSession({
+              type: 'wordToMeaning',
+              cards: shuffledRemaining.slice(0, CARDS_PER_SESSION),
+              currentIndex: 0
+            });
+          } else {
+            setCurrentSession(null);
+            return;
+          }
+        } else {
+          // Move to next exercise type with same cards but shuffled
+          const shuffledCards = [...currentSession.cards].sort(() => Math.random() - 0.5);
           setCurrentSession({
-            type: 'wordToMeaning',
-            cards: shuffledRemaining.slice(0, CARDS_PER_SESSION),
+            type: exerciseTypes[currentTypeIndex + 1],
+            cards: shuffledCards,
             currentIndex: 0
           });
-        } else {
-          setCurrentSession(null);
         }
       } else {
-        // Move to next exercise type with same cards but shuffled
-        const shuffledCards = [...currentSession.cards].sort(() => Math.random() - 0.5);
+        // Move to next card in current session
         setCurrentSession({
-          type: exerciseTypes[currentTypeIndex + 1],
-          cards: shuffledCards,
-          currentIndex: 0
+          ...currentSession,
+          currentIndex: nextIndex
         });
       }
-    } else {
-      // Move to next card in current session
-      setCurrentSession({
-        ...currentSession,
-        currentIndex: nextIndex
-      });
-    }
+      
+      // Show the new card and reset flip animation
+      setShowCard(true);
+      flipAnimation.setValue(0);
+    });
   };
 
   const getOtherCards = (currentCard: Card) => {
@@ -281,15 +299,37 @@ export default function LearningScreen() {
       </Text>
   
       <View style={styles.cardContainer}>
-      <CurrentExercise
-          card={currentCard}
-          onSuccess={handleSuccess}
-          onFailure={handleFailure}
-          otherCards={getOtherCards(currentCard)}
-          isSpeakerOn={isSpeakerOn}
-          onToggleSpeaker={toggleSpeaker}
-          isSpeaking={isSpeaking}
-        />
+        {showCard && currentSession && (
+          <CurrentExercise
+            key={`${currentSession.type}-${currentCard.id}-${currentSession.currentIndex}`}
+            card={currentCard}
+            onSuccess={handleSuccess}
+            onFailure={handleFailure}
+            otherCards={getOtherCards(currentCard)}
+            isSpeakerOn={isSpeakerOn}
+            onToggleSpeaker={toggleSpeaker}
+            isSpeaking={isSpeaking}
+          />
+        )}
+        
+        {/* Flip animation overlay */}
+        <Animated.View
+          style={[
+            styles.flipOverlay,
+            {
+              opacity: flipAnimation,
+              transform: [{
+                rotateY: flipAnimation.interpolate({
+                  inputRange: [0, 0.5, 1],
+                  outputRange: ['0deg', '90deg', '0deg']
+                })
+              }]
+            }
+          ]}
+          pointerEvents="none"
+        >
+          <View style={styles.flipCard} />
+        </Animated.View>
       </View>
     </View>
   );
@@ -338,5 +378,29 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  flipOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  flipCard: {
+    backgroundColor: '#9E9E9E',
+    borderRadius: 10,
+    width: '90%',
+    height: '80%',
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
 });
