@@ -1,8 +1,13 @@
 import React from 'react';
 import { View, ScrollView, StyleSheet, Dimensions, Text } from 'react-native';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const MAX_CONTAINER_HEIGHT = SCREEN_HEIGHT * 0.75;
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
+const CONTAINER_PADDING = 16;
+const HEADER_HEIGHT = 100; // Approximate header height
+const TAB_BAR_HEIGHT = 80; // Approximate tab bar height
+const AVAILABLE_HEIGHT = SCREEN_HEIGHT - HEADER_HEIGHT - TAB_BAR_HEIGHT;
+const MAX_CONTAINER_HEIGHT = AVAILABLE_HEIGHT * 0.9;
+const CONTAINER_WIDTH = SCREEN_WIDTH - (CONTAINER_PADDING * 2);
 
 interface ExerciseContainerProps {
   children: React.ReactNode;
@@ -50,8 +55,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   innerContainer: {
-    width: '100%',
-    height: MAX_CONTAINER_HEIGHT,
+    width: CONTAINER_WIDTH,
+    maxHeight: MAX_CONTAINER_HEIGHT,
     justifyContent: 'center',
   },
   scrollView: {
@@ -65,7 +70,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 10,
     padding: 20,
-    marginHorizontal: 16,
+    minHeight: 300,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,

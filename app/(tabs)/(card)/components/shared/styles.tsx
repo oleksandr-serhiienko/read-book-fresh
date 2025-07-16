@@ -194,21 +194,18 @@ export const learningStyles = StyleSheet.create({
   },
   optionsContainer: {
     width: '100%',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
+    flexDirection: 'column',
+    gap: 8,
     marginTop: 20,
     justifyContent: 'center',
   },
   option: {
     backgroundColor: '#f5f5f5',
-    padding: 16,
+    padding: 12,
     borderRadius: 8,
-    width: '48%',    // Keep width at 48%
-    minHeight: 60,   // Set minimum height
+    minHeight: 50,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
   },
   optionText: {
     fontSize: 16,     // Slightly smaller font size
