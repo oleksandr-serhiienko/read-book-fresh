@@ -2,6 +2,7 @@ import * as SQLite from 'expo-sqlite';
 import * as Crypto from 'expo-crypto';
 import { EmittedWord } from '@/app/(tabs)/(book)/components/events/slidePanelEvents';
 import { BookDatabase } from './bookDatabase';
+import { logger, LogCategories } from '@/utils/logger';
 
 export interface Word {
   id?: number;
@@ -114,7 +115,9 @@ export class Database {
       
       return await operation(db);
     } catch (error) {
-      console.error('Database operation failed:', error);
+      logger.error(LogCategories.DATABASE, 'Database operation failed', { 
+        error: error instanceof Error ? error.message : String(error)
+      });
       throw error;
     } finally {
       // CRITICAL: Always close connection to prevent resource leaks
@@ -122,7 +125,9 @@ export class Database {
         try {
           await db.closeAsync();
         } catch (closeError) {
-          console.warn("Error closing database connection:", closeError);
+          logger.warn(LogCategories.DATABASE, 'Error closing database connection', { 
+            error: closeError instanceof Error ? closeError.message : String(closeError)
+          });
         }
       }
     }
@@ -134,7 +139,7 @@ export class Database {
     }
 
     try {
-      console.log("Initializing database");
+      logger.info(LogCategories.DATABASE, 'Initializing main database');
       
       // Test database connection and create tables
       await this.withDatabaseConnection(async (db) => {
@@ -143,9 +148,11 @@ export class Database {
     
       
       this.isInitialized = true;
-      console.log("Database initialized successfully");
+      logger.info(LogCategories.DATABASE, 'Main database initialized successfully');
     } catch (error) {
-      console.error("Error initializing database:", error);
+      logger.error(LogCategories.DATABASE, 'Error initializing main database', { 
+        error: error instanceof Error ? error.message : String(error)
+      });
       throw error;
     }
   }
@@ -219,10 +226,14 @@ export class Database {
       
       if (!hasColumn) {
         await db.execAsync(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
-        console.log(`Added ${column} column to ${table} table`);
+        logger.debug(LogCategories.DATABASE, 'Added column to table', { column, table });
       }
     } catch (error) {
-      console.error(`Error checking/adding ${column} column:`, error);
+      logger.error(LogCategories.DATABASE, 'Error checking/adding column', { 
+        error: error instanceof Error ? error.message : String(error),
+        column,
+        table
+      });
       throw error;
     }
   }
@@ -277,7 +288,7 @@ export class Database {
     // Check if word already exists
     const wordExists = !(await this.WordDoesNotExist(emittedWord.word));
     if (wordExists) {
-      console.log("Word already exists");
+      // Skip routine operation logging
       return 0;
     }
 
@@ -295,7 +306,11 @@ export class Database {
         }
       }
     } catch (error) {
-      console.error(`Error accessing book database for ${emittedWord.bookTitle}:`, error);
+      logger.error(LogCategories.DATABASE, 'Error accessing book database for word insertion', { 
+        error: error instanceof Error ? error.message : String(error),
+        bookTitle: emittedWord.bookTitle,
+        word: emittedWord.word
+      });
     }
 
     // If no word info found in book database, create minimal structure
@@ -323,7 +338,11 @@ export class Database {
           sentenceContext = sentence.original_text || '';
         }
       } catch (error) {
-        console.error('Error getting sentence context:', error);
+        logger.error(LogCategories.DATABASE, 'Error getting sentence context', { 
+          error: error instanceof Error ? error.message : String(error),
+          sentenceId: emittedWord.sentenceId,
+          bookTitle: emittedWord.bookTitle
+        });
       }
     }
 
@@ -360,12 +379,6 @@ export class Database {
         ]
       );
   
-      // You can also log all parameters together
-      console.log("Insert Card Parameters:", JSON.stringify({
-        emittedWord,
-        sourceLanguage,
-        targetLanguage
-      }, null, 2));
       return result.lastInsertRowId;
     });
   }
@@ -395,7 +408,10 @@ export class Database {
 
       return card;
     } catch (error) {
-      console.error('Error getting card by id:', error);
+      logger.error(LogCategories.DATABASE, 'Error getting card by id', { 
+        error: error instanceof Error ? error.message : String(error),
+        cardId: id
+      });
       throw error;
     }
   }
@@ -436,7 +452,10 @@ export class Database {
 
         return card;
       } catch (error) {
-        console.error('Error getting card by word:', error);
+        logger.error(LogCategories.DATABASE, 'Error getting card by word', { 
+          error: error instanceof Error ? error.message : String(error),
+          word
+        });
         throw error;
       }
     });
@@ -496,7 +515,7 @@ export class Database {
         ]
       );
       
-      console.log("History updated");
+      // Skip routine operation logging
     });
   }
 
@@ -572,7 +591,10 @@ export class Database {
         return allExamples[0];
 
       } catch (error) {
-        console.error('Error getting next example:', error);
+        logger.error(LogCategories.DATABASE, 'Error getting next example', { 
+          error: error instanceof Error ? error.message : String(error),
+          cardId
+        });
         return null;
       }
     });
@@ -588,7 +610,7 @@ export class Database {
       // Delete the card
       await db.runAsync('DELETE FROM cards WHERE id = ?', [id]);
       
-      console.log("Card deleted");
+      // Skip routine operation logging
     });
   }
 
@@ -694,10 +716,13 @@ export class Database {
           ]
         );
         
-        console.log("Book inserted successfully");
+        logger.info(LogCategories.DATABASE, 'Book inserted successfully', { bookName: book.name });
         return result.lastInsertRowId;
       } catch (error) {
-        console.error("Error inserting book:", error);
+        logger.error(LogCategories.DATABASE, 'Error inserting book', { 
+          error: error instanceof Error ? error.message : String(error),
+          bookName: book.name
+        });
         throw error;
       }
     });
@@ -727,7 +752,10 @@ export class Database {
 
         return books;
       } catch (error) {
-        console.error(`Error fetching books for language ${sourceLanguage}:`, error);
+        logger.error(LogCategories.DATABASE, 'Error fetching books for language', { 
+          error: error instanceof Error ? error.message : String(error),
+          sourceLanguage
+        });
         throw error;
       }
     });
@@ -757,7 +785,11 @@ export class Database {
           progress: result.progress
         };
       } catch (error) {
-        console.error("Error getting book by name:", error);
+        logger.error(LogCategories.DATABASE, 'Error getting book by name', { 
+          error: error instanceof Error ? error.message : String(error),
+          bookName: name,
+          sourceLanguage
+        });
         throw error;
       }
     });
@@ -780,9 +812,12 @@ export class Database {
           ]
         );
         
-        console.log("Book updated successfully");
+        logger.info(LogCategories.DATABASE, 'Book updated successfully', { bookName: name });
       } catch (error) {
-        console.error("Error updating book:", error);
+        logger.error(LogCategories.DATABASE, 'Error updating book', { 
+          error: error instanceof Error ? error.message : String(error),
+          bookName: name
+        });
         throw error;
       }
     });
@@ -833,9 +868,12 @@ export class Database {
           );
         }
         
-        console.log(`Book '${name}' and associated data successfully deleted.`);
+        logger.info(LogCategories.DATABASE, 'Book and associated data successfully deleted', { bookName: name });
       } catch (error) {
-        console.error(`Error deleting book '${name}':`, error);
+        logger.error(LogCategories.DATABASE, 'Error deleting book', { 
+          error: error instanceof Error ? error.message : String(error),
+          bookName: name
+        });
         throw error;
       }
     });

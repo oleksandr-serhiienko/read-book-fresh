@@ -2,6 +2,7 @@
 import * as SQLite from 'expo-sqlite';
 import * as FileSystem from 'expo-file-system';
 import { Translation, Word } from './database';
+import { logger, LogCategories } from '@/utils/logger';
 
 export interface DBSentence {
   id: number;
@@ -61,22 +62,26 @@ export class BookDatabase {
       // Check if database exists
       const dbInfo = await FileSystem.getInfoAsync(this.dbPath);
       if (!dbInfo.exists) {
-        console.log("Database file does not exist yet " + this.dbPath);
+        logger.info(LogCategories.DATABASE, 'Database file does not exist yet', { dbPath: this.dbPath, bookTitle: this.bookTitle });
         this.isConnecting = false;
         return false;
       }
 
       // Test database accessibility
-      console.log("Testing database accessibility...");
+      logger.debug(LogCategories.DATABASE, 'Testing database accessibility', { bookTitle: this.bookTitle });
       await this.withDatabaseConnection(async (db) => {
         await db.getFirstAsync('SELECT 1');
       });
       
-      console.log("Database is accessible");
+      logger.debug(LogCategories.DATABASE, 'Database is accessible', { bookTitle: this.bookTitle });
       this.isConnecting = false;
       return true;
     } catch (error) {
-      console.error("Error initializing book database:", error);
+      logger.error(LogCategories.DATABASE, 'Error initializing book database', { 
+        error: error instanceof Error ? error.message : String(error),
+        bookTitle: this.bookTitle,
+        dbPath: this.dbPath
+      });
       this.isConnecting = false;
       throw error;
     }
@@ -87,13 +92,13 @@ export class BookDatabase {
   }
 
   async downloadDatabase(bookUrl: string): Promise<void> {
+    const dbUrl = bookUrl.replace('/books/', '/download-db/');
     try {
-      const dbUrl = bookUrl.replace('/books/', '/download-db/');
       
       // Check if file already exists
       const fileInfo = await FileSystem.getInfoAsync(this.dbPath);
       if (fileInfo.exists) {
-        console.log("Database already exists locally");
+        logger.info(LogCategories.DATABASE, 'Database already exists locally', { bookTitle: this.bookTitle });
         return;
       }
 
@@ -102,8 +107,7 @@ export class BookDatabase {
         throw new Error(`Invalid database URL: ${dbUrl}`);
       }
 
-      console.log(`Starting database download from: ${dbUrl}`);
-      console.log(`Saving directly to SQLite directory: ${this.dbPath}`);
+      logger.info(LogCategories.DATABASE, 'Starting database download', { bookTitle: this.bookTitle, dbUrl, dbPath: this.dbPath });
 
       // Download directly to the SQLite directory
       const downloadResumable = FileSystem.createDownloadResumable(
@@ -112,14 +116,20 @@ export class BookDatabase {
         {},
         (downloadProgress) => {
           const progress = downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite;
-          console.log(`Download progress: ${(progress * 100).toFixed(2)}%`);
+          if (progress % 0.1 < 0.05) { // Log every 10%
+            logger.debug(LogCategories.DATABASE, 'Database download progress', { bookTitle: this.bookTitle, progress: Math.round(progress * 100) });
+          }
         }
       );
 
       await downloadResumable.downloadAsync();
-      console.log(`Database downloaded successfully to SQLite directory.`);
+      logger.info(LogCategories.DATABASE, 'Database downloaded successfully', { bookTitle: this.bookTitle });
     } catch (error) {
-      console.error("Download error:", error);
+      logger.error(LogCategories.DATABASE, 'Database download error', { 
+        error: error instanceof Error ? error.message : String(error),
+        bookTitle: this.bookTitle,
+        dbUrl
+      });
       throw new Error(`Failed to download database: ${error}`);
     }
   }
@@ -135,7 +145,10 @@ export class BookDatabase {
       
       return await operation(db);
     } catch (error) {
-      console.error('Database operation failed:', error);
+      logger.error(LogCategories.DATABASE, 'Database operation failed', { 
+        error: error instanceof Error ? error.message : String(error),
+        bookTitle: this.bookTitle
+      });
       throw error;
     } finally {
       // CRITICAL: Always close connection to prevent resource leaks
@@ -143,7 +156,10 @@ export class BookDatabase {
         try {
           await db.closeAsync();
         } catch (closeError) {
-          console.warn("Error closing database connection:", closeError);
+          logger.warn(LogCategories.DATABASE, 'Error closing database connection', { 
+            error: closeError instanceof Error ? closeError.message : String(closeError),
+            bookTitle: this.bookTitle
+          });
         }
       }
     }
@@ -154,10 +170,14 @@ export class BookDatabase {
     try {
       return await operation();
     } catch (error) {
-      console.warn(`Database operation failed: ${error}`);
+      logger.warn(LogCategories.DATABASE, 'Database operation failed, retrying', { 
+        error: error instanceof Error ? error.message : String(error),
+        bookTitle: this.bookTitle,
+        retriesLeft: retries
+      });
       
       if (retries > 0) {
-        console.log(`Attempting to retry operation (${retries} retries left)...`);
+        logger.debug(LogCategories.DATABASE, 'Attempting to retry operation', { bookTitle: this.bookTitle, retries });
         // Small delay before retry
         await new Promise(resolve => setTimeout(resolve, 100));
         return this.withRetry(operation, retries - 1);
@@ -194,7 +214,7 @@ export class BookDatabase {
   async getSentences(): Promise<DBSentence[]> {
     return this.withRetry(async () => {
       return await this.withDatabaseConnection(async (db) => {
-        console.log("Getting sentences");
+        // Skip routine query logging
 
         let query = `SELECT id as id, sentence_number, chapter_id, original_text, original_parsed_text, translation_parsed_text 
         FROM book_sentences 
@@ -214,8 +234,7 @@ export class BookDatabase {
   async getChapterSentences(chapterNumber: number): Promise<DBSentence[]> {
     return this.withRetry(async () => {
       return await this.withDatabaseConnection(async (db) => {
-        console.log("Getting chapter sentences for chapter:", chapterNumber);
-        console.log("Book:", this.getDbName());
+        // Skip routine query logging
 
         let query = `SELECT 
                       id as id,
@@ -325,7 +344,7 @@ export class BookDatabase {
   async getChapterSentenceCount(chapterNumber: number): Promise<number> {
     return this.withRetry(async () => {
       return await this.withDatabaseConnection(async (db) => {
-        console.log("Getting sentence count for chapter:", chapterNumber);
+        // Skip routine query logging
         
         const result = await db.getFirstAsync<{ count: number }>(
           'SELECT COUNT(*) as count FROM book_sentences WHERE chapter_id = ?',
@@ -412,7 +431,11 @@ export class BookDatabase {
         return result;
       });
     } catch (error) {
-      console.error('Error getting word translation from original schema:', error);
+      logger.error(LogCategories.DATABASE, 'Error getting word translation from original schema', { 
+        error: error instanceof Error ? error.message : String(error),
+        word,
+        bookTitle: this.bookTitle
+      });
       return null;
     }
   }
@@ -495,7 +518,11 @@ export class BookDatabase {
         return result;
       });
     } catch (error) {
-      console.error('Error getting word translation from Gemini DB:', error);
+      logger.error(LogCategories.DATABASE, 'Error getting word translation from Gemini DB', { 
+        error: error instanceof Error ? error.message : String(error),
+        word,
+        bookTitle: this.bookTitle
+      });
       return null;
     }
   }
@@ -506,7 +533,11 @@ export class BookDatabase {
     try {
       return JSON.parse(jsonStr);
     } catch (error) {
-      console.error('Error parsing JSON:', error);
+      logger.error(LogCategories.DATABASE, 'Error parsing JSON', { 
+        error: error instanceof Error ? error.message : String(error),
+        jsonStr,
+        bookTitle: this.bookTitle
+      });
       return {};
     }
   }
@@ -514,6 +545,6 @@ export class BookDatabase {
   async close(): Promise<void> {
     // In the new pattern, connections are managed per operation
     // No persistent connection to close
-    console.log("Database connections are managed per operation - no persistent connection to close");
+    logger.debug(LogCategories.DATABASE, 'Database connections are managed per operation', { bookTitle: this.bookTitle });
   }
 }

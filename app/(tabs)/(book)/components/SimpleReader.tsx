@@ -157,7 +157,7 @@ const initializeDb = async () => {
           logger.error(LogCategories.DATABASE, 'Error parsing saved position', { 
             error: e instanceof Error ? e.message : String(e), 
             bookTitle,
-            savedLocation: savedPosition
+            savedLocation: bookExist.currentLocation
           });
         }
       }

@@ -72,6 +72,23 @@ export default function SettingsScreen() {
     }
   };
   
+  const getCategoryStyle = (category: string) => {
+    switch (category) {
+      case 'CARD_SWIPE':
+        return { color: '#10b981' };
+      case 'LEVEL_CHANGE':
+        return { color: '#3b82f6' };
+      case 'CONTEXT_SELECTION':
+        return { color: '#8b5cf6' };
+      case 'CARD_GENERATION':
+        return { color: '#f59e0b' };
+      case 'ERROR':
+        return { color: '#ef4444' };
+      default:
+        return { color: '#6b7280' };
+    }
+  };
+  
   const loadBooks = async () => {
     setIsLoading(true);
     try {
@@ -503,23 +520,6 @@ export default function SettingsScreen() {
       </Modal>
     </ScrollView>
   );
-  
-  const getCategoryStyle = (category: string) => {
-    switch (category) {
-      case 'CARD_SWIPE':
-        return { color: '#10b981' };
-      case 'LEVEL_CHANGE':
-        return { color: '#3b82f6' };
-      case 'CONTEXT_SELECTION':
-        return { color: '#8b5cf6' };
-      case 'CARD_GENERATION':
-        return { color: '#f59e0b' };
-      case 'ERROR':
-        return { color: '#ef4444' };
-      default:
-        return { color: '#6b7280' };
-    }
-  };
 }
 
 const styles = StyleSheet.create({
