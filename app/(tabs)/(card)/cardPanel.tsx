@@ -6,6 +6,7 @@ import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import { Transform } from '@/components/transform';
 import { CardEvents } from './components/CardEvents';
 import AudioControl from './components/AudioControl';
+import { logger, LogCategories } from '../../../utils/logger';
 
 // Import these to get the type information
 import { cardComponents } from './components/CardFactory';
@@ -83,64 +84,84 @@ export default function CardPanel() {
 
   const onSwipeComplete = async (direction: 'left' | 'right' | 'down') => {
     if (!card) return;
-      let success = false;
-      let type: 'card' | 'review' = 'card';
+    
+    let success = false;
+    let type: 'card' | 'review' = 'card';
 
-      switch(direction) {
-        case 'right':
-          success = true;
-          type = 'card';
-          break;
-        case 'left':
-          success = false;
-          type = 'card';
-          break;
-        case 'down':
-          success = true;
-          type = 'review';
-          break;
+    switch(direction) {
+      case 'right':
+        success = true;
+        type = 'card';
+        break;
+      case 'left':
+        success = false;
+        type = 'card';
+        break;
+      case 'down':
+        success = true;
+        type = 'review';
+        break;
+    }
+
+    logger.info(LogCategories.CARD_SWIPE, `Card swiped ${direction}`, {
+      cardId: card.id,
+      word: card.word,
+      oldLevel: card.level,
+      success,
+      type
+    });
+
+    // Calculate new level using the updated spaced repetition system
+    const oldLevel = card.level;
+    card.level = getNextLevel(card.level, success, type);
+    card.lastRepeat = new Date(Date.now());
+
+    logger.info(LogCategories.SPACED_REPETITION, `Level updated`, {
+      cardId: card.id,
+      word: card.word,
+      oldLevel,
+      newLevel: card.level,
+      success,
+      type
+    });
+
+    // Get the detailed card type description based on the card's level
+    const cardTypeDescription = CARD_TYPE_DESCRIPTIONS[card.level as keyof typeof CARD_TYPE_DESCRIPTIONS] || 'Unknown Type';
+
+    // Find the selected example to get source and target
+    let selectedExample: Example | null = null;
+    const allExamples = cardHelpers.getAllExamples(card);
+    for (const example of allExamples) {
+      const hash = await database.createExampleHash(example.sentence || '', example.translation || '');
+      if (hash === selectedContextId) {
+        selectedExample = example;
+        break;
       }
+    }
 
-      // Calculate new level using the updated spaced repetition system
-      console.log("card level was: " + card.level);
-      card.level = getNextLevel(card.level, success, type);
-      console.log("card level now: " + card.level);
-      card.lastRepeat = new Date(Date.now());
+    // Create a history entry with the hash and example details
+    let history: HistoryEntry = {
+      date: new Date(),
+      success: success,
+      cardId: card.id ?? 0,
+      exampleHash: selectedContextId ?? "",
+      type: type === 'review' ? `Review - ${cardTypeDescription}` : `${cardTypeDescription} (${type})`
+    };
 
-      console.log("saved card context hash: " + selectedContextId);
-      console.log("history to save was " + success);
+    logger.info(LogCategories.DATABASE, `History entry created`, {
+      cardId: card.id,
+      word: card.word,
+      historyType: history.type,
+      success,
+      exampleHash: selectedContextId
+    });
 
-      // Get the detailed card type description based on the card's level
-      const cardTypeDescription = CARD_TYPE_DESCRIPTIONS[card.level as keyof typeof CARD_TYPE_DESCRIPTIONS] || 'Unknown Type';
-
-      // Find the selected example to get source and target
-      let selectedExample: Example | null = null;
-      const allExamples = cardHelpers.getAllExamples(card);
-      for (const example of allExamples) {
-        const hash = await database.createExampleHash(example.sentence || '', example.translation || '');
-        if (hash === selectedContextId) {
-          selectedExample = example;
-          break;
-        }
-      }
-
-      // Create a history entry with the hash and example details
-      let history: HistoryEntry = {
-        date: new Date(),
-        success: success,
-        cardId: card.id ?? 0,
-        exampleHash: selectedContextId ?? "", // Using hash instead of contextId
-        type: type === 'review' ? `Review - ${cardTypeDescription}` : `${cardTypeDescription} (${type})`
-      };
-
-      console.log("type is: " + history.type)
-      await database.updateHistory(history);
-      await database.updateCard(card);
+    await database.updateHistory(history);
+    await database.updateCard(card);
     
     // Fetch fresh card data to ensure we have all contexts
     const updatedCard = await database.getCardById(card.id ?? 0);
     if (updatedCard) {
-      console.log("HEEEEEEEEE27")
       CardEvents.emit(updatedCard, success);
     }
   

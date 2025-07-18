@@ -1,11 +1,13 @@
 // Enhanced app/(tabs)/(setting)/index.tsx with database save functionality
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Switch, StyleSheet, FlatList, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Switch, StyleSheet, FlatList, Alert, ActivityIndicator, Modal } from 'react-native';
 import { useLanguage } from '@/app/languageSelector';
 import { Book, Database } from '@/components/db/database';
-import { AlertTriangle, Book as BookIcon, Globe, Bell, Moon, Save, Trash2, Upload } from 'lucide-react-native';
+import { AlertTriangle, Book as BookIcon, Globe, Bell, Moon, Save, Trash2, Upload, FileText, X, Download, Eye, EyeOff } from 'lucide-react-native';
 import * as FileSystem from 'expo-file-system';
 import { BookDatabase } from '@/components/db/bookDatabase';
+import { logger, LogEntry } from '../../../utils/logger';
+import * as Sharing from 'expo-sharing';
 
 export default function SettingsScreen() {
   const { sourceLanguage, targetLanguage, setSourceLanguage, setTargetLanguage } = useLanguage();
@@ -17,12 +19,58 @@ export default function SettingsScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [isSaving, setIsSaving] = useState<string | null>(null);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [showLogs, setShowLogs] = useState(false);
+  const [showLogModal, setShowLogModal] = useState(false);
   
   const database = new Database();
   
   useEffect(() => {
     loadBooks();
+    loadLogs();
   }, [sourceLanguage]);
+  
+  const loadLogs = async () => {
+    try {
+      const allLogs = await logger.getAllLogs();
+      setLogs(allLogs);
+    } catch (error) {
+      logger.error('SETTINGS', 'Error loading logs', { error: error instanceof Error ? error.message : String(error) });
+    }
+  };
+  
+  const clearLogs = async () => {
+    try {
+      await logger.clearLogs();
+      setLogs([]);
+      Alert.alert('Success', 'All logs have been cleared.');
+    } catch (error) {
+      logger.error('SETTINGS', 'Error clearing logs', { error: error instanceof Error ? error.message : String(error) });
+      Alert.alert('Error', 'Failed to clear logs.');
+    }
+  };
+  
+  const exportLogs = async () => {
+    try {
+      const logsText = logs.map(log => 
+        `[${new Date(log.timestamp).toLocaleString()}] ${log.category}: ${log.message}${log.data ? ' - ' + JSON.stringify(log.data) : ''}`
+      ).join('\n');
+      
+      const fileName = `app_logs_${new Date().toISOString().split('T')[0]}.txt`;
+      const fileUri = FileSystem.documentDirectory + fileName;
+      
+      await FileSystem.writeAsStringAsync(fileUri, logsText);
+      
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(fileUri);
+      } else {
+        Alert.alert('Success', `Logs exported to: ${fileUri}`);
+      }
+    } catch (error) {
+      logger.error('SETTINGS', 'Error exporting logs', { error: error instanceof Error ? error.message : String(error) });
+      Alert.alert('Error', 'Failed to export logs.');
+    }
+  };
   
   const loadBooks = async () => {
     setIsLoading(true);
@@ -31,7 +79,7 @@ export default function SettingsScreen() {
       const allBooks = await database.getAllBooks(sourceLanguage.toLowerCase());
       setBooks(allBooks);
     } catch (error) {
-      console.error('Error loading books:', error);
+      logger.error('SETTINGS', 'Error loading books', { error: error instanceof Error ? error.message : String(error) });
     } finally {
       setIsLoading(false);
     }
@@ -70,15 +118,15 @@ export default function SettingsScreen() {
       if (selectedBook.bookUrl && selectedBook.bookUrl.endsWith('.db')) {
         // The main database file in SQLite directory
         const dbPath = `${FileSystem.documentDirectory}SQLite/${selectedBook.name}.db`;
-        console.log(`Deleting database file: ${dbPath}`);
+        logger.info('SETTINGS', 'Deleting database file', { dbPath });
         
         try {
           if ((await FileSystem.getInfoAsync(dbPath)).exists) {
             await FileSystem.deleteAsync(dbPath, { idempotent: true });
-            console.log(`Successfully deleted database file: ${dbPath}`);
+            logger.info('SETTINGS', 'Successfully deleted database file', { dbPath });
           }
         } catch (fileError) {
-          console.error('Error deleting database file:', fileError);
+          logger.error('SETTINGS', 'Error deleting database file', { error: fileError instanceof Error ? fileError.message : String(fileError), dbPath });
         }
       }
       
@@ -90,7 +138,7 @@ export default function SettingsScreen() {
           await FileSystem.deleteAsync(selectedBook.bookUrl, { idempotent: true });
         }
       } catch (fileError) {
-        console.error('Error deleting book file:', fileError);
+        logger.error('SETTINGS', 'Error deleting book file', { error: fileError instanceof Error ? fileError.message : String(fileError) });
       }
       
       try {
@@ -100,7 +148,7 @@ export default function SettingsScreen() {
           await FileSystem.deleteAsync(selectedBook.imageUrl, { idempotent: true });
         }
       } catch (imageError) {
-        console.error('Error deleting cover image:', imageError);
+        logger.error('SETTINGS', 'Error deleting cover image', { error: imageError instanceof Error ? imageError.message : String(imageError) });
       }
       
       // 5. Refresh book list
@@ -108,7 +156,7 @@ export default function SettingsScreen() {
       
       Alert.alert('Success', `"${selectedBook.name}" has been deleted.`);
     } catch (error) {
-      console.error('Error deleting book:', error);
+      logger.error('SETTINGS', 'Error deleting book', { error: error instanceof Error ? error.message : String(error), bookName: selectedBook.name });
       Alert.alert('Error', 'Failed to delete the book. Please try again.');
     } finally {
       setSelectedBook(null);
@@ -159,7 +207,7 @@ export default function SettingsScreen() {
       
       Alert.alert('Success', `Book "${book.name}" has been saved to the server.`);
     } catch (error) {
-      console.error('Error saving book to server:', error);
+      logger.error('SETTINGS', 'Error saving book to server', { error: error instanceof Error ? error.message : String(error), bookName: book.name });
       Alert.alert('Error', `Failed to save the book to the server: ${error}`);
     } finally {
       setIsSaving(null);
@@ -333,9 +381,145 @@ export default function SettingsScreen() {
             </View>
           )}
         </View>
+
+        {/* Application Logs */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <FileText size={24} color="#4b5563" />
+            <Text style={styles.cardTitle}>Application Logs</Text>
+          </View>
+          
+          <View style={styles.cardContent}>
+            <View style={styles.logsSummary}>
+              <Text style={styles.logsCount}>Total Logs: {logs.length}</Text>
+              <Text style={styles.logsLastUpdate}>
+                Last Updated: {logs.length > 0 ? new Date(logs[0].timestamp).toLocaleString() : 'Never'}
+              </Text>
+            </View>
+            
+            <View style={styles.logsActions}>
+              <TouchableOpacity 
+                style={styles.logsButton}
+                onPress={() => setShowLogModal(true)}
+              >
+                <Eye size={16} color="#2563eb" />
+                <Text style={styles.logsButtonText}>View Logs</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.logsButton}
+                onPress={exportLogs}
+              >
+                <Download size={16} color="#2563eb" />
+                <Text style={styles.logsButtonText}>Export</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.logsButton, styles.logsButtonDanger]}
+                onPress={clearLogs}
+              >
+                <Trash2 size={16} color="#ef4444" />
+                <Text style={[styles.logsButtonText, styles.logsButtonTextDanger]}>Clear</Text>
+              </TouchableOpacity>
+            </View>
+            
+            {showLogs && (
+              <View style={styles.logsContainer}>
+                <ScrollView style={styles.logsScrollView} nestedScrollEnabled>
+                  {logs.slice(0, 50).map((log, index) => (
+                    <View key={index} style={styles.logEntry}>
+                      <Text style={styles.logTimestamp}>
+                        {new Date(log.timestamp).toLocaleTimeString()}
+                      </Text>
+                      <Text style={[styles.logCategory, getCategoryStyle(log.category)]}>
+                        {log.category}
+                      </Text>
+                      <Text style={styles.logMessage}>{log.message}</Text>
+                      {log.data && (
+                        <Text style={styles.logData}>{JSON.stringify(log.data)}</Text>
+                      )}
+                    </View>
+                  ))}
+                </ScrollView>
+                <TouchableOpacity 
+                  style={styles.toggleLogsButton}
+                  onPress={() => setShowLogs(false)}
+                >
+                  <EyeOff size={16} color="#6b7280" />
+                  <Text style={styles.toggleLogsText}>Hide Logs</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            
+            {!showLogs && (
+              <TouchableOpacity 
+                style={styles.toggleLogsButton}
+                onPress={() => setShowLogs(true)}
+              >
+                <Eye size={16} color="#6b7280" />
+                <Text style={styles.toggleLogsText}>Show Recent Logs</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
       </View>
+      
+      {/* Full Screen Log Modal */}
+      <Modal
+        visible={showLogModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Application Logs</Text>
+            <TouchableOpacity 
+              style={styles.modalCloseButton}
+              onPress={() => setShowLogModal(false)}
+            >
+              <X size={24} color="#6b7280" />
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.modalContent}>
+            {logs.map((log, index) => (
+              <View key={index} style={styles.modalLogEntry}>
+                <View style={styles.modalLogHeader}>
+                  <Text style={styles.modalLogTimestamp}>
+                    {new Date(log.timestamp).toLocaleString()}
+                  </Text>
+                  <Text style={[styles.modalLogCategory, getCategoryStyle(log.category)]}>
+                    {log.category}
+                  </Text>
+                </View>
+                <Text style={styles.modalLogMessage}>{log.message}</Text>
+                {log.data && (
+                  <Text style={styles.modalLogData}>{JSON.stringify(log.data, null, 2)}</Text>
+                )}
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
     </ScrollView>
   );
+  
+  const getCategoryStyle = (category: string) => {
+    switch (category) {
+      case 'CARD_SWIPE':
+        return { color: '#10b981' };
+      case 'LEVEL_CHANGE':
+        return { color: '#3b82f6' };
+      case 'CONTEXT_SELECTION':
+        return { color: '#8b5cf6' };
+      case 'CARD_GENERATION':
+        return { color: '#f59e0b' };
+      case 'ERROR':
+        return { color: '#ef4444' };
+      default:
+        return { color: '#6b7280' };
+    }
+  };
 }
 
 const styles = StyleSheet.create({
@@ -502,5 +686,150 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#e5e7eb',
     marginVertical: 16,
+  },
+  logsSummary: {
+    marginBottom: 16,
+  },
+  logsCount: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4b5563',
+    marginBottom: 4,
+  },
+  logsLastUpdate: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  logsActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  logsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 6,
+    gap: 4,
+  },
+  logsButtonDanger: {
+    backgroundColor: '#fef2f2',
+  },
+  logsButtonText: {
+    fontSize: 14,
+    color: '#2563eb',
+    fontWeight: '500',
+  },
+  logsButtonTextDanger: {
+    color: '#ef4444',
+  },
+  logsContainer: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+    padding: 12,
+    maxHeight: 300,
+  },
+  logsScrollView: {
+    maxHeight: 250,
+  },
+  logEntry: {
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  logTimestamp: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginBottom: 2,
+  },
+  logCategory: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  logMessage: {
+    fontSize: 14,
+    color: '#374151',
+    marginBottom: 4,
+  },
+  logData: {
+    fontSize: 12,
+    color: '#6b7280',
+    fontFamily: 'monospace',
+  },
+  toggleLogsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    marginTop: 8,
+    gap: 4,
+  },
+  toggleLogsText: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'white',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  modalLogEntry: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  modalLogHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  modalLogTimestamp: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  modalLogCategory: {
+    fontSize: 12,
+    fontWeight: '600',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: '#f3f4f6',
+  },
+  modalLogMessage: {
+    fontSize: 14,
+    color: '#374151',
+    marginBottom: 4,
+  },
+  modalLogData: {
+    fontSize: 12,
+    color: '#6b7280',
+    fontFamily: 'monospace',
+    backgroundColor: '#f9fafb',
+    padding: 8,
+    borderRadius: 4,
   }
 });

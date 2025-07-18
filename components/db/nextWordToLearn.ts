@@ -1,4 +1,5 @@
 import { Card } from "../db/database";
+import { logger, LogCategories } from "../../utils/logger";
 
 // Define type for intervals
 type IntervalMap = {
@@ -91,7 +92,7 @@ export function getNextLevel(currentLevel: number, success: boolean, type: strin
 // Main function to get cards that need review
 export default function wordGenerator(cards: Card[]): Card[] {
   if (!cards || !Array.isArray(cards)) {
-    console.warn('Invalid cards array provided to wordGenerator');
+    logger.warn(LogCategories.CARD_GENERATION, 'Invalid cards array provided to wordGenerator');
     return [];
   }
 
@@ -113,20 +114,19 @@ export default function wordGenerator(cards: Card[]): Card[] {
       const lastHistory = card.history?.[0];
       const type = lastHistory?.type?.startsWith('Review') ? 'review' : 'card';
       const nextReviewDate = getNextReviewDate(lastReviewDate, card.level ?? 0, type);
-      // For debugging
-      console.log(
-        `Card: ${card.word}, ` +
-        `Level: ${card.level}, ` +
-        //`Last review: ${lastReviewDate.toLocaleDateString()}, ` +
-        //`Next review: ${nextReviewDate.toLocaleDateString()}, ` +
-        `Now: ${now.toLocaleDateString()}, ` +
-        `Type: ${type}, ` +
-        `Status: ${card.info?.status}, ` +
-        `Info: ${card.info?.learningProgress.meaningToWord}, ` +
-        //`Sentence: ${card.info?.sentence}` + 
-        `LastHIstory: ${lastHistory?.date}` +
-        `LastHIstory: ${lastHistory?.success}`
-      );
+      // Log card generation details
+      logger.debug(LogCategories.CARD_GENERATION, `Card evaluation for review`, {
+        cardId: card.id,
+        word: card.word,
+        level: card.level,
+        lastReviewDate: lastReviewDate.toLocaleDateString(),
+        nextReviewDate: nextReviewDate.toLocaleDateString(),
+        now: now.toLocaleDateString(),
+        type,
+        status: card.info?.status,
+        lastHistoryDate: lastHistory?.date,
+        lastHistorySuccess: lastHistory?.success
+      });
 
       // NEW LOGIC: Include cards where the last answer was wrong
       const wasLastAttemptWrong = lastHistory && lastHistory.success === false;
@@ -134,7 +134,7 @@ export default function wordGenerator(cards: Card[]): Card[] {
       // Include if due for review OR if the last attempt was wrong
       return isSameOrAfterDate(now, nextReviewDate) || wasLastAttemptWrong;
     } catch (error) {
-      console.error(`Error processing card ${card.word}:`, error);
+      logger.error(LogCategories.CARD_GENERATION, `Error processing card ${card.word}`, { error: error instanceof Error ? error.message : String(error) });
       return false;
     }
   });

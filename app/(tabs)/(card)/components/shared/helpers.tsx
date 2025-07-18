@@ -1,6 +1,7 @@
 import { Text } from 'react-native';
 import React from 'react';
 import { Card, cardHelpers } from '@/components/db/database';
+import { logger, LogCategories } from '@/utils/logger';
 
 interface TextStyles {
   boldText: {
@@ -27,11 +28,23 @@ export const renderHighlightedText = (text: string, styles: TextStyles) => {
 export const selectBestContext = (card: Card): string => {
   const allExamples = cardHelpers.getAllExamples(card);
   
-  if (allExamples.length === 0) return "";
+  if (allExamples.length === 0) {
+    logger.warning(LogCategories.CONTEXT_SELECTION, `No examples available for card`, {
+      cardId: card.id,
+      word: card.word
+    });
+    return "";
+  }
   
   // If there's no history, return hash of the first example
   if (!card.history || card.history.length === 0) {
-    return createExampleHashSync(allExamples[0].sentence || '', allExamples[0].translation || '');
+    const hash = createExampleHashSync(allExamples[0].sentence || '', allExamples[0].translation || '');
+    logger.info(LogCategories.CONTEXT_SELECTION, `No history, using first example`, {
+      cardId: card.id,
+      word: card.word,
+      selectedHash: hash
+    });
+    return hash;
   }
   
   // Check if the last action was a review
@@ -48,7 +61,13 @@ export const selectBestContext = (card: Card): string => {
       createExampleHashSync(ex.sentence || '', ex.translation || '') === lastEntry.exampleHash
     );
     if (example) {
-      return lastEntry.exampleHash ?? ""; // Return the same hash as last time
+      logger.info(LogCategories.REVIEW_SYSTEM, `Repeating same context for review`, {
+        cardId: card.id,
+        word: card.word,
+        lastActionType: lastEntry.type,
+        repeatedHash: lastEntry.exampleHash
+      });
+      return lastEntry.exampleHash ?? "";
     }
   }
   

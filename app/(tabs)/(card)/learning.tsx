@@ -5,15 +5,11 @@ import { Link, useLocalSearchParams } from 'expo-router';
 import { Card, cardHelpers, database } from '@/components/db/database';
 import { useLanguage } from '@/app/languageSelector';
 import { LearningType, getLearningComponent } from './components/learning/LearningFactory';
-import { learningStyles } from './components/shared/styles';
-import AudioControl from '../(card)/components/AudioControl';
 import languages from '@/components/reverso/languages/entities/languages';
 import voices from '@/components/reverso/languages/voicesTranslate';
 import * as Speech from 'expo-speech';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { HelpCircle, Volume2, VolumeX } from 'lucide-react-native';
-import { Transform } from '@/components/transform';
-import { cardComponents } from './components/CardFactory';
+import { logger, LogCategories } from '@/utils/logger';
 
 type ExerciseSession = {
   type: LearningType;
@@ -69,7 +65,7 @@ export default function LearningScreen() {
         const state = await AsyncStorage.getItem('speaker_state');
         setIsSpeakerOn(state === null ? true : state === 'true');
       } catch (error) {
-        console.error('Error loading speaker state:', error);
+        logger.error(LogCategories.ERROR, 'Error loading speaker state', { error: error instanceof Error ? error.message : String(error) });
       }
     };
     
@@ -81,7 +77,7 @@ export default function LearningScreen() {
     try {
       await AsyncStorage.setItem('speaker_state', state.toString());
     } catch (error) {
-      console.error('Error saving speaker state:', error);
+      logger.error(LogCategories.ERROR, 'Error saving speaker state', { error: error instanceof Error ? error.message : String(error) });
     }
   };
   
@@ -106,7 +102,7 @@ export default function LearningScreen() {
         };    
         Speech.speak(word, options);
       } catch (error) {
-        console.error('Error speaking:', error);
+        logger.error(LogCategories.ERROR, 'Error speaking text', { error: error instanceof Error ? error.message : String(error), word });
         setIsSpeaking(false);
         resolve();
       }
