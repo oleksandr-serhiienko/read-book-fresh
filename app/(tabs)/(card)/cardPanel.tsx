@@ -102,7 +102,9 @@ export default function CardPanel() {
       }
 
       // Calculate new level using the updated spaced repetition system
-      card.level = await getNextLevel(card.level, success, type);
+      console.log("card level was: " + card.level);
+      card.level = getNextLevel(card.level, success, type);
+      console.log("card level now: " + card.level);
       card.lastRepeat = new Date(Date.now());
 
       console.log("saved card context hash: " + selectedContextId);
@@ -128,12 +130,12 @@ export default function CardPanel() {
         success: success,
         cardId: card.id ?? 0,
         exampleHash: selectedContextId ?? "", // Using hash instead of contextId
-        type: `${cardTypeDescription} (${type})`
+        type: type === 'review' ? `Review - ${cardTypeDescription}` : `${cardTypeDescription} (${type})`
       };
 
-      // Save the history
+      console.log("type is: " + history.type)
       await database.updateHistory(history);
-    await database.updateCard(card);
+      await database.updateCard(card);
     
     // Fetch fresh card data to ensure we have all contexts
     const updatedCard = await database.getCardById(card.id ?? 0);

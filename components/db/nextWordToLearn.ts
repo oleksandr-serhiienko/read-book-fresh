@@ -111,9 +111,8 @@ export default function wordGenerator(cards: Card[]): Card[] {
       lastReviewDate.setHours(0, 0, 0, 0);
       
       const lastHistory = card.history?.[0];
-      const type = lastHistory?.type || 'card';
+      const type = lastHistory?.type?.startsWith('Review') ? 'review' : 'card';
       const nextReviewDate = getNextReviewDate(lastReviewDate, card.level ?? 0, type);
-
       // For debugging
       console.log(
         `Card: ${card.word}, ` +

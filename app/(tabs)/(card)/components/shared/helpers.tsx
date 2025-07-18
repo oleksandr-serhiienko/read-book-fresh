@@ -34,6 +34,24 @@ export const selectBestContext = (card: Card): string => {
     return createExampleHashSync(allExamples[0].sentence || '', allExamples[0].translation || '');
   }
   
+  // Check if the last action was a review
+  const sortedHistory = [...card.history].sort((a, b) => 
+    b.date.getTime() - a.date.getTime()
+  );
+  
+  const lastEntry = sortedHistory[0];
+  
+  // If the last action was a review (type starts with 'Review'), return the SAME example hash
+  if (lastEntry && lastEntry.type && lastEntry.type.startsWith('Review')) {
+    // Make sure the example still exists
+    const example = allExamples.find(ex => 
+      createExampleHashSync(ex.sentence || '', ex.translation || '') === lastEntry.exampleHash
+    );
+    if (example) {
+      return lastEntry.exampleHash ?? ""; // Return the same hash as last time
+    }
+  }
+  
   // Create a set of example hashes that were used in history
   const usedExampleHashes = new Set<string>();
   
@@ -56,11 +74,11 @@ export const selectBestContext = (card: Card): string => {
   // If all examples have been used, return the one used longest ago
   if (card.history.length > 0) {
     // Find the oldest used example that still exists
-    const sortedHistory = [...card.history].sort((a, b) => 
+    const oldestHistory = [...card.history].sort((a, b) => 
       a.date.getTime() - b.date.getTime()
     );
     
-    for (const historyEntry of sortedHistory) {
+    for (const historyEntry of oldestHistory) {
       if (historyEntry.exampleHash) {
         // Find the example matching this hash
         const example = allExamples.find(ex => 
