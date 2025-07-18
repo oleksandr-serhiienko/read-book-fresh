@@ -409,8 +409,8 @@ const styles = StyleSheet.create({
   },
   slideCard: {
     borderRadius: 10,
-    width: '90%',
-    height: '80%',
+    width: '100%',
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: "#000",

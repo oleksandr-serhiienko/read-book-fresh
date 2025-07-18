@@ -302,11 +302,11 @@ const ContextInputExercise: React.FC<LearningExerciseProps> = ({
     <ExerciseContainer>
      
         {(!keyboardVisible || showLetterHelp) && (
-          <ScrollView style={styles.contextScrollView}>
+          <View style={styles.contextContainer}>
             <Text style={[learningStyles.contextText, styles.centeredText]}>
               {getContextSentence()}
             </Text>
-          </ScrollView>
+          </View>
         )}
 
         {!showLetterHelp ? (
@@ -438,8 +438,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     backgroundColor: '#fff',
   },
-  contextScrollView: {
-    maxHeight: 100,
+  contextContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
     marginBottom: 20,
   },
   translationText: {
