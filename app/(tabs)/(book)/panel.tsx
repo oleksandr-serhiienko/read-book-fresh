@@ -8,6 +8,7 @@ import { ArrowLeftRight, Volume1, Volume2 } from 'lucide-react-native';
 import languages from '@/components/reverso/languages/entities/languages';
 import * as Speech from 'expo-speech';
 import { EmittedWord } from './components/events/slidePanelEvents';
+import { logger, LogCategories } from '@/utils/logger';
 
 // Base Panel Component remains the same...
 const BasePanel = ({ 
@@ -75,7 +76,11 @@ const WordTranslationPanel = ({
       };    
       await Speech.speak(content.word, options);
     } catch (error) {
-      console.error('Error speaking:', error);
+      logger.error(LogCategories.ERROR, 'Error speaking word in panel', { 
+        error: error instanceof Error ? error.message : String(error),
+        word: content.word,
+        language: sourceLanguage
+      });
     } finally {
       setIsSpeaking(false);
     }

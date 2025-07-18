@@ -6,6 +6,7 @@ import { CardProps } from './shared/types';
 import { cardStyles } from './shared/styles';
 import { ProgressBar } from './ProgressBar';
 import { getCardComponent, needContext } from './CardFactory';
+import { logger, LogCategories } from '@/utils/logger';
 
 export const ApprovalCard: React.FC<CardProps> = ({ 
   card, 
@@ -34,7 +35,7 @@ export const ApprovalCard: React.FC<CardProps> = ({
     setIsFlipping(true);
     setIsNavigating(true);
 
-    console.log("Approval CARD: " + contextId);
+    logger.debug(LogCategories.CARD_SWIPE, 'Approval card navigation initiated', { cardId: card.id, contextId });
     Animated.sequence([
       Animated.timing(flipAnim, {
         toValue: 0.5,
@@ -43,7 +44,9 @@ export const ApprovalCard: React.FC<CardProps> = ({
       }),
       Animated.delay(50)
     ]).start(async () => {
-      console.log("Actual: " + needContext(card.level) ? contextId?.toString() || '' : null)
+      const contextRequired = needContext(card.level);
+      const actualContext = contextRequired ? contextId?.toString() || '' : null;
+      logger.info(LogCategories.CARD_SWIPE, 'Navigating to card panel', { cardId: card.id, contextRequired, actualContext });
       router.push({
         pathname: '/cardPanel',
         params: { 

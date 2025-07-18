@@ -1,5 +1,6 @@
 // events/SlidePanelEvents.ts - Updated with EmittedWord type
 import { ResponseTranslation, SentenceTranslation } from '@/components/reverso/reverso';
+import { logger, LogCategories } from '@/utils/logger';
 
 // New interface for the simplified word emission
 export interface EmittedWord {
@@ -17,21 +18,21 @@ export class SlidePanelEvents {
   private static isEmitting = false;
 
   static subscribe(listener: PanelUpdateListener) {
-    console.log('[SlidePanelEvents] New listener subscribed');
+    logger.debug(LogCategories.USER_ACTION, 'Panel event listener subscribed');
     this.listeners.push(listener);
     return () => {
-      console.log('[SlidePanelEvents] Listener unsubscribed');
+      logger.debug(LogCategories.USER_ACTION, 'Panel event listener unsubscribed');
       this.listeners = this.listeners.filter(l => l !== listener);
     };
   }
 
   static emit(content: PanelContent, isVisible: boolean) {
     if (this.isEmitting) {
-      console.log('[SlidePanelEvents] Already emitting, skipping');
+      logger.debug(LogCategories.USER_ACTION, 'Panel event already emitting, skipping');
       return;
     }
 
-    console.log('[SlidePanelEvents] Emitting event:', { contentExists: !!content, isVisible });
+    logger.debug(LogCategories.USER_ACTION, 'Panel event emitting', { contentExists: !!content, isVisible });
     this.isEmitting = true;
 
     try {
@@ -39,7 +40,9 @@ export class SlidePanelEvents {
         try {
           listener(content, isVisible);
         } catch (error) {
-          console.error('[SlidePanelEvents] Error in listener:', error);
+          logger.error(LogCategories.ERROR, 'Error in panel event listener', { 
+            error: error instanceof Error ? error.message : String(error) 
+          });
         }
       });
     } finally {

@@ -2,6 +2,7 @@
 import { useState, useCallback } from 'react';
 import { DBSentence } from '@/components/db/bookDatabase';
 import { ParsedSentence, ParsedWord } from '../types/types';
+import { logger, LogCategories } from '@/utils/logger';
 
 interface HighlightState {
   sentenceNumber: number | null;
@@ -28,7 +29,7 @@ export const useWordHighlight = (
   const [selectedSentence, setSelectedSentence] = useState<number | null>(null);
 
   const handleWordPress = useCallback(async (word: string, sentence: DBSentence, wordIndex: number): Promise<ParsedWord | null> => {
-    console.log(`Processing word: ${word} at index: ${wordIndex}`);
+    logger.debug(LogCategories.WORD_HIGHLIGHT, `Processing word: ${word} at index: ${wordIndex}`);
     
     let parsed;
     if (!parsedSentences.has(sentence.sentence_number)) {
@@ -48,7 +49,7 @@ export const useWordHighlight = (
     );
     
     if (foundWord) {
-      console.log(`Found word: ${foundWord.word} with linked numbers: ${foundWord.groupNumber}`);
+      logger.debug(LogCategories.WORD_HIGHLIGHT, `Found word: ${foundWord.word} with linked numbers: ${foundWord.groupNumber}`);
       setHighlightState({
         sentenceNumber: sentence.sentence_number,
         groupNumber: foundWord.groupNumber,

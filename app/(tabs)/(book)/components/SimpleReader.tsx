@@ -17,6 +17,7 @@ import { Book, database } from "@/components/db/database";
 import { useLanguage } from '@/app/languageSelector';
 import FileManager from './FileManager';
 import ProgressBar from './ProgressBar';
+import { logger, LogCategories } from '@/utils/logger';
 
 // Type definition for ViewToken
 type ViewToken = {
@@ -82,7 +83,7 @@ const SimpleReader: React.FC<DBReaderProps> = ({ bookUrl, bookTitle, imageUrl })
   
   // Database initialization function
 const initializeDb = async () => {
-  console.log("Initializing database for book:", bookTitle);
+  logger.info(LogCategories.DATABASE, 'Initializing database for book', { bookTitle });
   
   // Initialize FileManager first to ensure directories exist
   await FileManager.init();
@@ -90,11 +91,14 @@ const initializeDb = async () => {
   // Clean up existing database if needed
   if (dbRef.current) {
     try {
-      console.log("Closing previous database connection");
+      logger.info(LogCategories.DATABASE, 'Closing previous database connection', { bookTitle });
       await dbRef.current.close();
       dbRef.current = null;
     } catch (err) {
-      console.error("Error closing previous database:", err);
+      logger.error(LogCategories.DATABASE, 'Error closing previous database', { 
+        error: err instanceof Error ? err.message : String(err), 
+        bookTitle 
+      });
       // Continue with new database creation regardless
     }
   }
@@ -107,7 +111,7 @@ const initializeDb = async () => {
     dbInitialized = await bookDatabase.initialize();
     
     if (!dbInitialized) {
-      console.log("Database not initialized, downloading...");
+      logger.info(LogCategories.DATABASE, 'Database not initialized, downloading', { bookTitle, bookUrl });
       await bookDatabase.downloadDatabase(bookUrl);
       dbInitialized = await bookDatabase.initialize();
       
@@ -143,19 +147,23 @@ const initializeDb = async () => {
             const sent = parseInt(parts[1], 10);
             
             if (!isNaN(ch) && ch > 0 && !isNaN(sent) && sent > 0) {
-              console.log(`Found saved position: Chapter ${ch}, Sentence ${sent}`);
+              logger.info(LogCategories.DATABASE, 'Found saved reading position', { bookTitle, chapter: ch, sentence: sent });
               savedChapter = ch;
               savedSentence = sent;
             }
 
           }
         } catch (e) {
-          console.error("Error parsing saved position:", e);
+          logger.error(LogCategories.DATABASE, 'Error parsing saved position', { 
+            error: e instanceof Error ? e.message : String(e), 
+            bookTitle,
+            savedLocation: savedPosition
+          });
         }
       }
       
       // Set the values directly regardless of whether we found a saved position
-      console.log(`Setting reader position: Chapter ${savedChapter}, Sentence ${savedSentence}`);
+      logger.info(LogCategories.USER_ACTION, 'Setting reader position', { bookTitle, chapter: savedChapter, sentence: savedSentence });
       setReaderCurrentChapter(savedChapter);
       currentChapterRef.current = savedChapter; // Update the ref too
       setTargetSentenceIndex(savedSentence); 
@@ -163,21 +171,29 @@ const initializeDb = async () => {
       maxSentenceCount = await bookDatabase.getChapterSentenceCount(savedChapter);      
     }
     
-    console.log("Database initialized successfully");
+    logger.info(LogCategories.DATABASE, 'Database initialized successfully', { bookTitle });
     dbRef.current = bookDatabase;
     setDb(bookDatabase);
     
     return true;
   } catch (error) {
-    console.error("Database initialization error:", error);
+    logger.error(LogCategories.DATABASE, 'Database initialization error', { 
+      error: error instanceof Error ? error.message : String(error), 
+      bookTitle 
+    });
     throw error;
   }
 };
 
   // Initialize database on mount or book change
   useEffect(() => {
-    console.log("Book changed, reinitializing database...");
-    initializeDb().catch(console.error);
+    logger.info(LogCategories.DATABASE, 'Book changed, reinitializing database', { bookTitle });
+    initializeDb().catch((error) => {
+      logger.error(LogCategories.DATABASE, 'Error reinitializing database', { 
+        error: error instanceof Error ? error.message : String(error), 
+        bookTitle 
+      });
+    });
     loadFontSize();
     FontSizeEvents.reset();
     
@@ -197,12 +213,15 @@ const initializeDb = async () => {
       // Close database connection when component unmounts
       const cleanup = async () => {
         if (dbRef.current) {
-          console.log("Component unmounting, closing database");
+          logger.info(LogCategories.DATABASE, 'Component unmounting, closing database', { bookTitle });
           try {
             await dbRef.current.close();
             dbRef.current = null;
           } catch (err) {
-            console.error("Error closing database on unmount:", err);
+            logger.error(LogCategories.DATABASE, 'Error closing database on unmount', { 
+              error: err instanceof Error ? err.message : String(err), 
+              bookTitle 
+            });
           }
         }
       };
@@ -265,14 +284,17 @@ const initializeDb = async () => {
       await database.updateBook(bookTitle, sourceLanguage.toLowerCase(), progress);
       await getReadingProgress(latestUpdate.chapter, latestUpdate.sentence);
       
-      console.log(`Progress updated: ${progress}`);
+      logger.debug(LogCategories.USER_ACTION, 'Reading progress updated', { bookTitle, progress });
       
       // Process remaining items if any were added during processing
       if (updateQueueRef.current.length > 0) {
         setTimeout(() => processUpdateQueue(), 100);
       }
     } catch (error) {
-      console.error('Error updating progress:', error);
+      logger.error(LogCategories.DATABASE, 'Error updating progress', { 
+        error: error instanceof Error ? error.message : String(error), 
+        bookTitle 
+      });
     } finally {
       isProcessingQueueRef.current = false;
     }
@@ -294,7 +316,12 @@ const initializeDb = async () => {
         if (sentenceNumber !== currentVisibleSentence) {
           setCurrentVisibleSentence(sentenceNumber);
           const currentChapter = currentChapterRef.current;
-          console.log(`Currently reading sentence ${sentenceNumber} / ${maxSentenceCount} in chapter ${currentChapter}`);
+          logger.debug(LogCategories.USER_ACTION, 'Reading position updated', { 
+            bookTitle, 
+            chapter: currentChapter, 
+            sentence: sentenceNumber, 
+            totalSentences: maxSentenceCount 
+          });
           
           // Add to queue instead of immediate update
           updateQueueRef.current.push({
@@ -326,13 +353,16 @@ const initializeDb = async () => {
       const overallProgress = (chapterProgress + (sentenceProgress / totalChapters)) / 100;
       await database.updateBookProgress(bookTitle, sourceLanguage.toLowerCase(), overallProgress);
     } catch (error) {
-      console.error("Error calculating reading progress:", error);
+      logger.error(LogCategories.DATABASE, 'Error calculating reading progress', { 
+        error: error instanceof Error ? error.message : String(error), 
+        bookTitle 
+      });
     }
   };
 
   // Handler for "Back to beginning" button
   const handleBackToTop = () => {
-    console.log("Back to beginning button pressed");
+    logger.info(LogCategories.USER_ACTION, 'Back to beginning button pressed', { bookTitle });
     setShowAllSentences(true);
     
     // Indicate auto-scrolling is in progress
@@ -375,14 +405,14 @@ const initializeDb = async () => {
   // Auto-scroll to target sentence
   useEffect(() => {
     if (shouldScrollToTarget && !showAllSentences && displayedSentences.length > 0 && flatListRef.current) {
-      console.log("Attempting to scroll to target sentence in filtered data");
+      logger.debug(LogCategories.USER_ACTION, 'Attempting to scroll to target sentence', { bookTitle, targetSentenceIndex });
       
       // Find the index of the targetSentenceIndex in the filtered array
       const targetIndex = displayedSentences.findIndex(
         item => item.sentence_number === targetSentenceIndex
       );
       
-      console.log("Target sentence index in filtered array:", targetIndex);
+      logger.debug(LogCategories.USER_ACTION, 'Target sentence index in filtered array', { bookTitle, targetIndex });
       
       if (targetIndex !== -1) {
         // Show loading overlay for automatic scrolling
@@ -393,7 +423,7 @@ const initializeDb = async () => {
         const estimatedItemHeight = currentFontSize * 1.5; // rough estimate
         
         // Scroll to estimated position first
-        console.log("Scrolling to offset...");
+        logger.debug(LogCategories.USER_ACTION, 'Scrolling to offset', { bookTitle });
         flatListRef.current.scrollToOffset({
           offset: estimatedItemHeight * (targetIndex - itemsBeforeTarget),
           animated: false
@@ -401,7 +431,7 @@ const initializeDb = async () => {
         
         // After a moment, try to adjust more precisely
         setTimeout(() => {
-          console.log("Scrolling to index...");
+          logger.debug(LogCategories.USER_ACTION, 'Scrolling to index', { bookTitle });
           if (flatListRef?.current) {
             flatListRef.current.scrollToIndex({
               index: targetIndex,
@@ -428,7 +458,7 @@ const initializeDb = async () => {
     FontSizeEvents.reset();
     
     const unsubscribe = FontSizeEvents.subscribe((newSize) => {
-      console.log('Font size updated:', newSize);
+      logger.info(LogCategories.USER_ACTION, 'Font size updated', { bookTitle, newSize });
       setCurrentFontSize(newSize);
     });
 
@@ -446,7 +476,10 @@ const initializeDb = async () => {
         FontSizeEvents.emit(newSize);
       }
     } catch (error) {
-      console.error('Error loading font size:', error);
+      logger.error(LogCategories.DATABASE, 'Error loading font size', { 
+        error: error instanceof Error ? error.message : String(error), 
+        bookTitle 
+      });
     }
   };
 
@@ -470,11 +503,15 @@ const initializeDb = async () => {
 
   // Panel events subscription
   useEffect(() => {
-    console.log('[SimpleReader] Setting up panel event subscription');
+    logger.debug(LogCategories.USER_ACTION, 'Setting up panel event subscription', { bookTitle });
     SlidePanelEvents.reset();
     
     const unsubscribe = SlidePanelEvents.subscribe((content, isVisible) => {
-      console.log('[SimpleReader] Received panel event:', { contentExists: !!content, isVisible });
+      logger.debug(LogCategories.USER_ACTION, 'Received panel event', { 
+        bookTitle, 
+        contentExists: !!content, 
+        isVisible 
+      });
       requestAnimationFrame(() => {
         setPanelContent(content);
         setIsPanelVisible(isVisible);
@@ -482,7 +519,7 @@ const initializeDb = async () => {
     });
 
     return () => {
-      console.log('[SimpleReader] Cleaning up panel event subscription');
+      logger.debug(LogCategories.USER_ACTION, 'Cleaning up panel event subscription', { bookTitle });
       unsubscribe();
     };
   }, []);
@@ -506,7 +543,7 @@ const initializeDb = async () => {
     highestMeasuredFrameIndex: number;
     averageItemLength: number;
   }) => {
-    console.log("Failed to scroll to index", info);
+    logger.debug(LogCategories.USER_ACTION, 'Failed to scroll to index', { bookTitle, info });
     
     // Try again with a larger timeout and scroll to the highest measured index first
     setTimeout(() => {

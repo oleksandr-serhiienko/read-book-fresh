@@ -4,6 +4,7 @@ import { Link, useFocusEffect } from 'expo-router';
 import { useLanguage } from '@/app/languageSelector';
 import { Book, database } from '@/components/db/database';
 import { Colors } from 'react-native/Libraries/NewAppScreen';
+import { logger, LogCategories } from '@/utils/logger';
 
 interface ServerBook {
   title: string;
@@ -24,7 +25,7 @@ const BookScreen: React.FC = () => {
 
   useFocusEffect(
     useCallback(() => {
-      console.log('[BOOKS_FETCH] Screen focused, fetching books');
+      logger.info(LogCategories.USER_ACTION, 'Books screen focused, fetching books', { sourceLanguage });
       fetchAllBooks();
     }, [sourceLanguage])
   );
@@ -44,8 +45,15 @@ const BookScreen: React.FC = () => {
       );
       
       setOtherBooks(uniqueServerBooks);
+      logger.info(LogCategories.DATABASE, 'Books fetched successfully', { 
+        localBooksCount: localBooks.length, 
+        serverBooksCount: uniqueServerBooks.length 
+      });
     } catch (error) {
-     console.log(error);
+      logger.error(LogCategories.DATABASE, 'Error fetching books', { 
+        error: error instanceof Error ? error.message : String(error), 
+        sourceLanguage 
+      });
     }
   };
 

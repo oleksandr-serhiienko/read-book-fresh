@@ -1,4 +1,6 @@
 // events/FontSizeEvents.ts
+import { logger, LogCategories } from '@/utils/logger';
+
 type FontSizeUpdateListener = (fontSize: number) => void;
 
 export class FontSizeEvents {
@@ -6,21 +8,21 @@ export class FontSizeEvents {
   private static isEmitting = false;
 
   static subscribe(listener: FontSizeUpdateListener) {
-    console.log('[FontSizeEvents] New listener subscribed');
+    logger.debug(LogCategories.FONT_SIZE_EVENTS, 'New listener subscribed');
     this.listeners.push(listener);
     return () => {
-      console.log('[FontSizeEvents] Listener unsubscribed');
+      logger.debug(LogCategories.FONT_SIZE_EVENTS, 'Listener unsubscribed');
       this.listeners = this.listeners.filter(l => l !== listener);
     };
   }
 
   static emit(fontSize: number) {
     if (this.isEmitting) {
-      console.log('[FontSizeEvents] Already emitting, skipping');
+      logger.debug(LogCategories.FONT_SIZE_EVENTS, 'Already emitting, skipping');
       return;
     }
 
-    console.log('[FontSizeEvents] Emitting font size change:', fontSize);
+    logger.debug(LogCategories.FONT_SIZE_EVENTS, 'Emitting font size change', { fontSize });
     this.isEmitting = true;
 
     try {
@@ -28,7 +30,7 @@ export class FontSizeEvents {
         try {
           listener(fontSize);
         } catch (error) {
-          console.error('[FontSizeEvents] Error in listener:', error);
+          logger.error(LogCategories.FONT_SIZE_EVENTS, 'Error in listener', { error: error instanceof Error ? error.message : String(error) });
         }
       });
     } finally {

@@ -1,4 +1,5 @@
 import * as FileSystem from 'expo-file-system';
+import { logger, LogCategories } from '@/utils/logger';
 
 const FileManager = {
     booksDirectory: `${FileSystem.documentDirectory}books/`,
@@ -38,11 +39,17 @@ const FileManager = {
           });
           return !reader; // If we can't read, consider it corrupted
         } catch (readError) {
-          console.error('Error reading file:', readError);
+          logger.error(LogCategories.DATABASE, 'Error reading file for corruption check', { 
+            error: readError instanceof Error ? readError.message : String(readError),
+            filePath
+          });
           return true; // If we can't read the file, consider it corrupted
         }
       } catch (error) {
-        console.error('Error checking file:', error);
+        logger.error(LogCategories.DATABASE, 'Error checking file for corruption', { 
+          error: error instanceof Error ? error.message : String(error),
+          filePath
+        });
         return true;
       }
     },
@@ -51,7 +58,7 @@ const FileManager = {
       const localPath = await this.checkLocalFile(bookUrl);
       if (localPath !== null){
         if (await this.isFileCorrupted(localPath)) {
-          console.log("Removing corrupted file before download");
+          logger.info(LogCategories.DATABASE, 'Removing corrupted file before download', { bookUrl, localPath });
           await FileSystem.deleteAsync(localPath);
           return this.downloadFile(bookUrl);
         }
@@ -84,7 +91,10 @@ const FileManager = {
           {},
           (downloadProgress) => {
             const progress = downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite;
-            console.log(`Download progress: ${progress * 100}%`);
+            logger.debug(LogCategories.DATABASE, 'File download progress', { 
+              fileUrl,
+              progress: Math.round(progress * 100)
+            });
           }
         );
     
@@ -99,7 +109,11 @@ const FileManager = {
   
         return result.uri;
       } catch (error) {
-        console.error('Download error:', error);
+        logger.error(LogCategories.DATABASE, 'File download error', { 
+          error: error instanceof Error ? error.message : String(error),
+          fileUrl,
+          localPath
+        });
         throw new Error(`Failed to download`);
       }
     }

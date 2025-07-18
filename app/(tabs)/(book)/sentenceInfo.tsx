@@ -5,6 +5,7 @@ import { BookDatabase, DBSentence } from '@/components/db/bookDatabase';
 import { ParsedSentence, ParsedWord } from '../(book)/components/types/types';
 import { Plus, Link, X } from 'lucide-react-native';
 import { EmittedWord } from './components/events/slidePanelEvents';
+import { logger, LogCategories } from '@/utils/logger';
 
 export default function SentenceInfo() {
   const { content } = useLocalSearchParams();
@@ -40,7 +41,11 @@ export default function SentenceInfo() {
             setTranslationText(sentences[0].translation_parsed_text ?? "");
           }
         } catch (error) {
-          console.error("Error loading sentence:", error);
+          logger.error(LogCategories.DATABASE, 'Error loading sentence', { 
+            error: error instanceof Error ? error.message : String(error), 
+            sentenceId: parsedContent.sentenceId,
+            bookTitle: parsedContent.bookTitle
+          });
         }
       
       
@@ -355,7 +360,11 @@ export default function SentenceInfo() {
       setIsLongPressed(false);
       setSelectedWordGroup(null);
     } catch (error) {
-      console.error("Error saving sentence:", error);
+      logger.error(LogCategories.DATABASE, 'Error saving sentence', { 
+        error: error instanceof Error ? error.message : String(error),
+        sentenceId: parsedContent.sentenceId,
+        bookTitle: parsedContent.bookTitle
+      });
       Alert.alert("Error", "Failed to save changes");
     }
   };

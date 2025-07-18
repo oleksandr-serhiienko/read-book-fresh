@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLanguage } from '@/app/languageSelector';
 import voices from '@/components/reverso/languages/voicesTranslate';
 import languages from '@/components/reverso/languages/entities/languages';
+import { logger, LogCategories } from '@/utils/logger';
 
 interface AudioControlProps {
   text: string;
@@ -40,7 +41,7 @@ export const AudioControl: React.FC<AudioControlProps> = ({ text, cardId, autoPl
       setIsSpeakerOn(newState);
       setIsLoaded(true); // Mark as loaded only after state is set
     } catch (error) {
-      console.error('Error loading speaker state:', error);
+      logger.error(LogCategories.ERROR, 'Error loading speaker state for audio control', { error: error instanceof Error ? error.message : String(error), cardId });
       setIsLoaded(true); // Still mark as loaded in case of error
     }
   };
@@ -49,7 +50,7 @@ export const AudioControl: React.FC<AudioControlProps> = ({ text, cardId, autoPl
     try {
       await AsyncStorage.setItem(`speaker_state`, state.toString());
     } catch (error) {
-      console.error('Error saving speaker state:', error);
+      logger.error(LogCategories.ERROR, 'Error saving speaker state for audio control', { error: error instanceof Error ? error.message : String(error), cardId });
     }
   };
 
@@ -64,7 +65,7 @@ export const AudioControl: React.FC<AudioControlProps> = ({ text, cardId, autoPl
       };
       await Speech.speak(text, options);
     } catch (error) {
-      console.error('Error speaking:', error);
+      logger.error(LogCategories.ERROR, 'Error speaking text in audio control', { error: error instanceof Error ? error.message : String(error), text, cardId });
     } finally {
       setIsSpeaking(false);
     }

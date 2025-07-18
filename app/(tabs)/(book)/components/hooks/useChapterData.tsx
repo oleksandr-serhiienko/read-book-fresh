@@ -1,6 +1,7 @@
 // hooks/useChapterData.ts
 import { useState } from 'react';
 import { BookDatabase, DBSentence } from '@/components/db/bookDatabase';
+import { logger, LogCategories } from '@/utils/logger';
 
 interface UseChapterDataProps {
   db: BookDatabase | null;
@@ -19,12 +20,12 @@ export const useChapterData = ({ db }: UseChapterDataProps) => {
       setError(null);
       
       if (db === null) {
-        console.log("Database not initialized");
+        logger.warn(LogCategories.CHAPTER_DATA, "Database not initialized");
         return;
       }
       // Get sentences for specific chapter
       const sentences = await db.getChapterSentences(chapterNumber);
-      console.log("chapt num" + chapterNumber);
+      logger.debug(LogCategories.CHAPTER_DATA, `Loading chapter ${chapterNumber}`, { chapterNumber, sentenceCount: sentences.length });
       setChapterSentences(sentences);
       
       // Get total chapters count if not already set

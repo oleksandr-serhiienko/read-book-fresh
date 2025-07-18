@@ -5,6 +5,7 @@ import { Link, useFocusEffect } from 'expo-router';
 import wordGenerator from '../../../components/db/nextWordToLearn';
 import { useLanguage } from '@/app/languageSelector';
 import DeckCard from './components/Deck';
+import { logger, LogCategories } from '@/utils/logger';
 
 interface CardDecks {
   [key: string]: Card[];
@@ -42,10 +43,10 @@ export default function CardDeckScreen() {
   const loadDeckImages = async (deckTitles: string[]) => {
     const imageMap: DeckImageMap = {};
     for (const title of deckTitles) {
-      console.log(title);
+      logger.debug(LogCategories.DATABASE, 'Loading deck image', { title });
       const book = await database.getBookByName(title, sourceLanguage);
       if (book?.imageUrl) {
-        console.log(book.imageUrl);
+        logger.debug(LogCategories.DATABASE, 'Deck image found', { title, imageUrl: book.imageUrl });
         imageMap[title] = book.imageUrl;
       }
     }
@@ -99,7 +100,7 @@ export default function CardDeckScreen() {
 
   const renderBookDeck = (title: string, cards: Card[], index: number) => {
     const deckStats = stats[title] || { total: 0, learning: 0, reviewed: 0 };
-    console.log("holaa " + deckImages[title]);
+    logger.debug(LogCategories.USER_ACTION, 'Rendering deck', { title, imageUrl: deckImages[title], stats: deckStats });
     const bookTheme = {
       background: '#4A69BD',
       accent: '#FED330',    

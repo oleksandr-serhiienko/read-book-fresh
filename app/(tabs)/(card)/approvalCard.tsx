@@ -7,6 +7,7 @@ import { CardEvents } from './components/CardEvents';
 import wordGenerator from '@/components/db/nextWordToLearn';
 import ApprovalCard from './components/ApprovalCard';
 import { selectBestContext } from './components/shared/helpers';
+import { logger, LogCategories } from '@/utils/logger';
 
 export default function ApprovalScreen() {
   const { source } = useLocalSearchParams<{ source: string }>();
@@ -26,8 +27,12 @@ export default function ApprovalScreen() {
       const cardsToLearn = wordGenerator(cards.filter(card => card.info?.status === 'reviewing'));
       setCards(cardsToLearn);
       setCardsToLearn(cardsToLearn.length);
+      logger.info(LogCategories.CARD_GENERATION, 'Cards loaded for approval', { 
+        source, 
+        totalCards: cards.length, 
+        cardsToLearn: cardsToLearn.length 
+      });
     };
-    console.log("CARDS HERE: " + cards.length)
     loadCard();
   }, [source]);
 

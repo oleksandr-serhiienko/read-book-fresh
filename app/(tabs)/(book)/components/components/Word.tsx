@@ -5,6 +5,7 @@ import { ParsedWord } from '../types/types';
 import { BookDatabase, DBSentence } from '@/components/db/bookDatabase';
 import { EmittedWord, SlidePanelEvents } from '../events/slidePanelEvents';
 import WordPopup from './WordPopup';
+import { logger, LogCategories } from '@/utils/logger';
 
 interface WordProps {
   word: ParsedWord;
@@ -174,7 +175,7 @@ const Word: React.FC<WordProps> = memo(({
       bookTitle: database.getDbName(),
       sentenceId: sentence.id 
     }
-    console.log("HEEEEEEEEE1")
+    logger.debug(LogCategories.WORD_INTERACTION, 'Emitting translated word group', { word: translationPhrase, translation: currentPhrase });
     SlidePanelEvents.emit(wordToEmmit, true);
   };
 
@@ -191,7 +192,7 @@ const Word: React.FC<WordProps> = memo(({
       bookTitle: database.getDbName(),
       sentenceId: sentence.id 
     }
-    console.log("HEEEEEEEEE2")
+    logger.debug(LogCategories.WORD_INTERACTION, 'Emitting original word group', { word: currentPhrase, translation: translationPhrase });
     SlidePanelEvents.emit(wordToEmmit, true);
   };
 
@@ -212,7 +213,7 @@ const Word: React.FC<WordProps> = memo(({
   const handleTranslatedSingleWord = async (updatedWord: UpdatedWord): Promise<void> => {
     // For translated words, we show the original
     const cleanedWord = cleanWord(updatedWord.wordLinkedWordMirror.join(' '));
-    console.log("lets check " + cleanedWord)
+    logger.debug(LogCategories.WORD_INTERACTION, 'Processing translated single word', { cleanedWord });
 
     const wordToEmmit: EmittedWord = {
       word: cleanedWord,
@@ -220,7 +221,7 @@ const Word: React.FC<WordProps> = memo(({
       bookTitle: database.getDbName(),
       sentenceId: sentence.id 
     }
-    console.log("HEEEEEEEEE3")
+    logger.debug(LogCategories.WORD_INTERACTION, 'Emitting translated single word', { word: cleanedWord });
     SlidePanelEvents.emit(wordToEmmit, true);
   };
 
@@ -239,7 +240,7 @@ const Word: React.FC<WordProps> = memo(({
       bookTitle: database.getDbName(),
       sentenceId: sentence.id 
     }
-    console.log("HEEEEEEEEE4")
+    logger.debug(LogCategories.WORD_INTERACTION, 'Emitting original single word', { word: cleanedWord, translation: coupledTranslation });
     SlidePanelEvents.emit(wordToEmmit, true);
   };
 

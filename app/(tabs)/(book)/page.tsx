@@ -7,6 +7,7 @@ import { useLanguage } from '@/app/languageSelector';
 import { database } from '@/components/db/database';
 import SimpleReader from './components/SimpleReader';
 import { EmittedWord } from './components/events/slidePanelEvents';
+import { logger, LogCategories } from '@/utils/logger';
 
 export default function PageScreen() {
   const { bookUrl, bookTitle, imageUrl } = useLocalSearchParams<{ 
@@ -64,10 +65,10 @@ export default function PageScreen() {
       const book = await database.getBookByName(bookTitle, sourceLanguage.toLowerCase());
       if (book?.currentLocation !== null) {
         setInitialLocation(book?.currentLocation);
-        console.log("Loaded saved location:", book?.currentLocation);
+        logger.info(LogCategories.DATABASE, 'Loaded saved reading location', { bookTitle, location: book?.currentLocation });
       }
     } catch (error) {
-      console.error('Error loading saved location:', error);
+      logger.error(LogCategories.DATABASE, 'Error loading saved location', { bookTitle, error: error instanceof Error ? error.message : String(error) });
     }
   };
 

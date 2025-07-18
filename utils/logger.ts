@@ -105,5 +105,9 @@ export const LogCategories = {
   CARD_GENERATION: 'CardGeneration',
   USER_ACTION: 'UserAction',
   SETTINGS: 'Settings',
-  ERROR: 'Error'
+  ERROR: 'Error',
+  WORD_HIGHLIGHT: 'WordHighlight',
+  CHAPTER_DATA: 'ChapterData',
+  FONT_SIZE_EVENTS: 'FontSizeEvents',
+  WORD_INTERACTION: 'WordInteraction'
 } as const;
