@@ -485,6 +485,19 @@ export class Database {
           card.id ?? 0
         ]
       );
+      
+      logger.info(LogCategories.DATABASE, `Card updated successfully`, {
+        cardId: card.id,
+        word: card.word,
+        level: card.level,
+        lastRepeat: card.lastRepeat.toISOString(),
+        source: card.source,
+        sourceLanguage: card.sourceLanguage,
+        targetLanguage: card.targetLanguage,
+        wordInfo: card.wordInfo,
+        info: card.info,
+        comment: card.comment
+      });
     });
   }
 
