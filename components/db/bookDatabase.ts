@@ -38,6 +38,26 @@ export class BookDatabase {
     this.dbPath = `${FileSystem.documentDirectory}SQLite/${this.dbName}`;
   }
 
+  private async ensureColumnExistsWithConnection(db: SQLite.SQLiteDatabase, table: string, column: string, type: string): Promise<void> {
+    try {
+      const tableInfo = await db.getAllAsync(`PRAGMA table_info(${table})`);
+      const hasColumn = tableInfo.some((col: any) => col.name === column);
+      
+      if (!hasColumn) {
+        await db.execAsync(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+        logger.debug(LogCategories.DATABASE, 'Added column to table', { column, table, bookTitle: this.bookTitle });
+      }
+    } catch (error) {
+      logger.error(LogCategories.DATABASE, 'Error checking/adding column', { 
+        error: error instanceof Error ? error.message : String(error),
+        column,
+        table,
+        bookTitle: this.bookTitle
+      });
+      throw error;
+    }
+  }
+
   async initialize(): Promise<boolean> {
     // If we're already connecting, wait for that to finish
     if (this.isConnecting) {
@@ -190,22 +210,28 @@ export class BookDatabase {
   async rewriteSentence(id: number, originalNew: string, translationNew: string): Promise<boolean> {
     return this.withRetry(async () => {
       return await this.withDatabaseConnection(async (db) => {
+        // Ensure updated_at column exists
+        await this.ensureColumnExistsWithConnection(db, 'book_sentences', 'updated_at', 'DATETIME NULL');
+        
+        const now = new Date().toISOString();
         let chapterQuery = `
           UPDATE book_sentences 
           SET original_parsed_text = ?, 
-              translation_parsed_text = ?
+              translation_parsed_text = ?,
+              updated_at = ?
           WHERE id = ? 
         `;
         if (this.dbName.toLowerCase().includes("gemini")) {
           chapterQuery = `
             UPDATE book_sentences 
             SET original_parsed_text = ?, 
-                translation_parsed_text = ?
+                translation_parsed_text = ?,
+                updated_at = ?
             WHERE sentence_id = ? 
           `;
         }
         
-        await db.runAsync(chapterQuery, [originalNew, translationNew, id]);
+        await db.runAsync(chapterQuery, [originalNew, translationNew, now, id]);
         return true;
       });
     });
