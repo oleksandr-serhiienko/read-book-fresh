@@ -11,6 +11,7 @@ import { logger, LogCategories } from '../../../utils/logger';
 // Import these to get the type information
 import { cardComponents } from './components/CardFactory';
 import { EmittedWord } from '../(book)/components/events/slidePanelEvents';
+import { createExampleHashSync } from './components/shared/helpers';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -315,7 +316,19 @@ export default function CardPanel() {
     }
   
     const examples = cardHelpers.getAllExamples(card);
-    const firstExample = cardHelpers.getFirstExample(card);
+    
+    // Find the example that matches the contextId (if provided), otherwise use first example
+    let selectedExample = cardHelpers.getFirstExample(card);
+    if (selectedContextId && examples.length > 0) {
+      for (const example of examples) {
+        const hash = createExampleHashSync(example.sentence || '', example.translation || '');
+        if (hash === selectedContextId) {
+          selectedExample = example;
+          break;
+        }
+      }
+    }
+    
     const firstMeaning = cardHelpers.getFirstMeaning(card);
     const emittedWord: EmittedWord = {bookTitle: card.source, word: card.word, translation: "", sentenceId: 0 }
   
@@ -346,13 +359,13 @@ export default function CardPanel() {
           <Text style={styles.word}>{card.word}</Text>
           <Text style={styles.translation}>{firstMeaning}</Text>
           
-          {examples.length > 0 && firstExample && (
+          {examples.length > 0 && selectedExample && (
             <View style={styles.contextContainer}>
               <Text style={styles.contextText}>
-                {renderHighlightedText(firstExample.sentence || "")}
+                {renderHighlightedText(selectedExample.sentence || "")}
               </Text>
               <Text style={styles.contextText}>
-                {renderHighlightedText(firstExample.translation || "")}
+                {renderHighlightedText(selectedExample.translation || "")}
               </Text>
             </View>
           )}
@@ -478,7 +491,7 @@ const styles = StyleSheet.create({
   contextText: {
     fontSize: 14,
     marginBottom: 5,
-    textAlign: 'left',
+    textAlign: 'center',
     color: '#555',
   },
   boldText: {
