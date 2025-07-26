@@ -18,7 +18,7 @@ type ExerciseSession = {
 };
 
 export default function LearningScreen() {
-  const { mode } = useLocalSearchParams<{ mode: string }>();
+  const { mode, deletedCardId } = useLocalSearchParams<{ mode: string; deletedCardId?: string }>();
   const [allCards, setAllCards] = useState<Card[]>([]);
   const [currentSession, setCurrentSession] = useState<ExerciseSession | null>(null);
   const { sourceLanguage, targetLanguage } = useLanguage();
@@ -58,6 +58,37 @@ export default function LearningScreen() {
 
     loadCards();
   }, [sourceLanguage, targetLanguage]);
+
+  // Handle card deletion from wordInfo
+  useEffect(() => {
+    if (deletedCardId) {
+      const cardId = parseInt(deletedCardId);
+      
+      // Remove from allCards
+      setAllCards(prev => prev.filter(card => card.id !== cardId));
+      
+      // Remove from current session if present
+      setCurrentSession(prev => {
+        if (!prev) return prev;
+        
+        const updatedCards = prev.cards.filter(card => card.id !== cardId);
+        
+        // If we removed the current card, adjust the index
+        let newIndex = prev.currentIndex;
+        if (prev.currentIndex >= updatedCards.length) {
+          newIndex = Math.max(0, updatedCards.length - 1);
+        }
+        
+        return {
+          ...prev,
+          cards: updatedCards,
+          currentIndex: newIndex
+        };
+      });
+      
+      logger.info(LogCategories.USER_ACTION, `Removed deleted card ${cardId} from learning session`);
+    }
+  }, [deletedCardId]);
 
   useEffect(() => {
     const loadSpeakerState = async () => {

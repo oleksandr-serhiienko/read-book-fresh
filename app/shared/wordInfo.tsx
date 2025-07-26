@@ -352,8 +352,11 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
         // Actually delete the card from the database
         await database.deleteCard(card.id);
         
-        // Navigate back to learning screen or close modal
-        router.back();
+        // Navigate back with deleted card ID parameter to update learning deck
+        router.navigate({
+          pathname: '/(tabs)/(card)/learning',
+          params: { deletedCardId: card.id.toString() }
+        });
       }
     } catch (error) {
       console.error('Error deleting word from learning:', error);
