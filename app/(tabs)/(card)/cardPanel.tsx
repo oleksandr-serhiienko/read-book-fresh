@@ -319,17 +319,27 @@ export default function CardPanel() {
     
     // Find the example that matches the contextId (if provided), otherwise use first example
     let selectedExample = cardHelpers.getFirstExample(card);
+    let contextSpecificMeaning = cardHelpers.getFirstMeaning(card); // fallback to first meaning
+    
     if (selectedContextId && examples.length > 0) {
       for (const example of examples) {
         const hash = createExampleHashSync(example.sentence || '', example.translation || '');
         if (hash === selectedContextId) {
           selectedExample = example;
+          
+          // Find which translation contains this example
+          if (card.wordInfo?.translations) {
+            for (const translation of card.wordInfo.translations) {
+              if (translation.examples?.includes(example)) {
+                contextSpecificMeaning = translation.meaning || contextSpecificMeaning;
+                break;
+              }
+            }
+          }
           break;
         }
       }
     }
-    
-    const firstMeaning = cardHelpers.getFirstMeaning(card);
     const emittedWord: EmittedWord = {bookTitle: card.source, word: card.word, translation: "", sentenceId: 0 }
   
     return (
@@ -357,7 +367,7 @@ export default function CardPanel() {
           </View>
   
           <Text style={styles.word}>{card.word}</Text>
-          <Text style={styles.translation}>{firstMeaning}</Text>
+          <Text style={styles.translation}>{contextSpecificMeaning}</Text>
           
           {examples.length > 0 && selectedExample && (
             <View style={styles.contextContainer}>
