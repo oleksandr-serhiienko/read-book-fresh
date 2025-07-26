@@ -617,11 +617,17 @@ export class Database {
     await this.initialize();
 
     await this.withDatabaseConnection(async (db) => {
+      const { logger, LogCategories } = await import('@/utils/logger');
+      
+      logger.info(LogCategories.DATABASE, `Starting deletion of card with id: ${id}`);
+      
       // Delete associated histories first
-      await db.runAsync('DELETE FROM histories WHERE cardId = ?', [id]);
+      const historyResult = await db.runAsync('DELETE FROM histories WHERE cardId = ?', [id]);
+      logger.info(LogCategories.DATABASE, `Deleted ${historyResult.changes} history entries for card ${id}`);
       
       // Delete the card
-      await db.runAsync('DELETE FROM cards WHERE id = ?', [id]);
+      const cardResult = await db.runAsync('DELETE FROM cards WHERE id = ?', [id]);
+      logger.info(LogCategories.DATABASE, `Successfully deleted card ${id}, affected rows: ${cardResult.changes}`);
       
       // Skip routine operation logging
     });

@@ -74,11 +74,24 @@ const ContextExercise: React.FC<LearningExerciseProps> = ({
 
   if (!cardHelpers.getAllExamples(card) || cardHelpers.getAllExamples(card).length === 0) {
     return (
-      <View style={learningStyles.container}>
+      <ExerciseContainer>
         <View style={learningStyles.cardContent}>
-          <Text style={learningStyles.contextText}>No context available</Text>
+          <Text style={learningStyles.contextText}>No context available for:</Text>
+          <Text style={[learningStyles.contextText, { fontWeight: 'bold', fontSize: 20, marginVertical: 10 }]}>
+            {card.word}
+          </Text>
+          <View style={[learningStyles.optionsContainer, { marginTop: 20 }]}>
+            <TouchableOpacity
+              style={[learningStyles.option, { backgroundColor: '#3498db' }]}
+              onPress={() => onSuccess()}
+            >
+              <Text style={[learningStyles.optionText, { color: '#fff' }]}>
+                Skip this word
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      </ExerciseContainer>
     );
   }
 

@@ -4,6 +4,8 @@ import { LearningExerciseProps } from '../LearningFactory';
 import { learningStyles } from '../../shared/styles';
 import ExerciseContainer from '../../shared/exerciseContainer';
 import { cardHelpers } from '@/components/db/database';
+import { Link } from 'expo-router';
+import { HelpCircle, Volume2, VolumeX } from 'lucide-react-native';
 
 const localStyles = StyleSheet.create({
   alternateTranslations: {
@@ -21,6 +23,22 @@ const localStyles = StyleSheet.create({
     marginBottom: 10,
     paddingHorizontal: 20,
     lineHeight: 24,
+  },
+  controlsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    width: '100%',
+    paddingHorizontal: 4,
+    marginBottom: 10,
+  },
+  controlButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+  },
+  speaking: {
+    backgroundColor: '#e0e0e0',
   }
 });
 
@@ -33,7 +51,10 @@ const MeaningToWordExercise: React.FC<LearningExerciseProps> = ({
   card,
   onSuccess,
   onFailure,
-  otherCards
+  otherCards,
+  isSpeakerOn = false,
+  onToggleSpeaker = () => {},
+  isSpeaking = false
 }) => {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [showResult, setShowResult] = useState(false);
@@ -66,7 +87,35 @@ const MeaningToWordExercise: React.FC<LearningExerciseProps> = ({
   };
 
   return (
-    <ExerciseContainer>    
+    <ExerciseContainer>
+      <View style={styles.controlsRow}>
+        <Link
+          href={{
+            pathname: "/wordInfo",
+            params: {
+              content: JSON.stringify(card.id),
+              added: 'true'
+            }
+          }}
+          asChild
+        >
+          <TouchableOpacity style={styles.controlButton}>
+            <HelpCircle size={24} color="#666" />
+          </TouchableOpacity>
+        </Link>
+        <TouchableOpacity 
+          style={[styles.controlButton, isSpeaking && styles.speaking]}
+          onPress={onToggleSpeaker}
+          disabled={isSpeaking}
+        >
+          {isSpeakerOn ? (
+            <Volume2 size={24} color="#666" />
+          ) : (
+            <VolumeX size={24} color="#666" />
+          )}
+        </TouchableOpacity>
+      </View>
+    
       <Text style={styles.word}>{cardHelpers.getFirstMeaning(card)}</Text>
       {alternateTranslations.length > 0 && (
         <Text style={styles.alternateTranslations}>

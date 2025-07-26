@@ -19,7 +19,8 @@ import {
   Info,
   BookOpen,
   MessageSquare,
-  ChevronRight
+  ChevronRight,
+  Trash2
 } from 'lucide-react-native';
 import languages from '@/components/reverso/languages/entities/languages';
 import voices from '@/components/reverso/languages/voicesTranslate';
@@ -340,6 +341,27 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
     }
   };
 
+  const handleDeleteFromLearning = async () => {
+    const originalWord = translationRef.current?.Original || fullTranslation?.Original;
+    if (!originalWord) return;
+    
+    setIsSaving(true);
+    try {
+      const card = await database.getCardByWord(originalWord);
+      if (card?.id) {
+        // Actually delete the card from the database
+        await database.deleteCard(card.id);
+        
+        // Navigate back to learning screen or close modal
+        router.back();
+      }
+    } catch (error) {
+      console.error('Error deleting word from learning:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleWordPress = async (word: string) => {
     if (!db) return;
     
@@ -543,12 +565,23 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
                     <Text style={styles.wordDetailValue}>
                       {comment || 'No comment'}
                     </Text>
-                    <TouchableOpacity 
-                      style={styles.iconButton}
-                      onPress={() => setIsEditing(true)}
-                    >
-                      <Pencil size={16} color="#007AFF" />
-                    </TouchableOpacity>
+                    <View style={styles.commentActions}>
+                      <TouchableOpacity 
+                        style={styles.iconButton}
+                        onPress={() => setIsEditing(true)}
+                      >
+                        <Pencil size={16} color="#007AFF" />
+                      </TouchableOpacity>
+                      {currentCard?.info?.status === 'learning' && (
+                        <TouchableOpacity 
+                          style={[styles.iconButton, styles.deleteButton]}
+                          onPress={handleDeleteFromLearning}
+                          disabled={isSaving}
+                        >
+                          <Trash2 size={16} color="#d32f2f" />
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   </View>
                 )}
               </View>
@@ -881,6 +914,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  commentActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  deleteButton: {
+    backgroundColor: '#ffebee',
+    borderRadius: 4,
+    padding: 8,
   },
   commentText: {
     flex: 1,

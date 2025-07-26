@@ -298,6 +298,28 @@ const ContextInputExercise: React.FC<LearningExerciseProps> = ({
     return reconstructed;
   };
 
+  // Check if no context available and show skip/delete options
+  if (!cardHelpers.getAllExamples(card) || cardHelpers.getAllExamples(card).length === 0) {
+    return (
+      <ExerciseContainer>
+        <View style={[styles.contextContainer, { flex: 1, justifyContent: 'center' }]}>
+          <Text style={[learningStyles.contextText, styles.centeredText]}>No context available for:</Text>
+          <Text style={[learningStyles.contextText, styles.centeredText, { fontWeight: 'bold', fontSize: 20, marginVertical: 10 }]}>
+            {card.word}
+          </Text>
+          <View style={{ alignItems: 'center', marginTop: 20 }}>
+            <TouchableOpacity
+              style={[styles.submitButton, { backgroundColor: '#3498db', marginBottom: 10 }]}
+              onPress={() => onSuccess()}
+            >
+              <Text style={styles.buttonText}>Skip this word</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ExerciseContainer>
+    );
+  }
+
   return (
     <ExerciseContainer>
      
