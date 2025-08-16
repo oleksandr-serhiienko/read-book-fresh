@@ -214,22 +214,13 @@ export class BookDatabase {
         await this.ensureColumnExistsWithConnection(db, 'book_sentences', 'updated_at', 'DATETIME NULL');
         
         const now = new Date().toISOString();
-        let chapterQuery = `
+        const chapterQuery = `
           UPDATE book_sentences 
           SET original_parsed_text = ?, 
               translation_parsed_text = ?,
               updated_at = ?
           WHERE id = ? 
         `;
-        if (this.dbName.toLowerCase().includes("gemini")) {
-          chapterQuery = `
-            UPDATE book_sentences 
-            SET original_parsed_text = ?, 
-                translation_parsed_text = ?,
-                updated_at = ?
-            WHERE sentence_id = ? 
-          `;
-        }
         
         await db.runAsync(chapterQuery, [originalNew, translationNew, now, id]);
         return true;
@@ -242,15 +233,9 @@ export class BookDatabase {
       return await this.withDatabaseConnection(async (db) => {
         // Skip routine query logging
 
-        let query = `SELECT id as id, sentence_number, chapter_id, original_text, original_parsed_text, translation_parsed_text 
+        const query = `SELECT id as id, sentence_number, chapter_id, original_text, original_parsed_text, translation_parsed_text 
         FROM book_sentences 
         ORDER BY sentence_number`;
-        
-        if (this.dbName.toLowerCase().includes("gemini")) {
-          query = `SELECT sentence_id as id, sentence_number, chapter_id, original_text, original_parsed_text, translation_parsed_text 
-          FROM book_sentences 
-          ORDER BY sentence_number`;
-        }
         
         return await db.getAllAsync<DBSentence>(query);
       });
@@ -262,20 +247,8 @@ export class BookDatabase {
       return await this.withDatabaseConnection(async (db) => {
         // Skip routine query logging
 
-        let query = `SELECT 
-                      id as id,
-                      sentence_number,
-                      chapter_id,
-                      original_text,
-                      original_parsed_text,
-                      translation_parsed_text
-                    FROM book_sentences 
-                    WHERE chapter_id = ? 
-                    ORDER BY sentence_number`;
-
-        if (this.dbName.toLowerCase().includes("gemini")) {
-          query = `SELECT 
-                    sentence_id as id,
+        const query = `SELECT 
+                    id as id,
                     sentence_number,
                     chapter_id,
                     original_text,
@@ -284,7 +257,6 @@ export class BookDatabase {
                     FROM book_sentences 
                     WHERE chapter_id = ? 
                     ORDER BY sentence_number`;
-        }
         
         return await db.getAllAsync<DBSentence>(query, [chapterNumber]);
       });
@@ -294,20 +266,8 @@ export class BookDatabase {
   async getChapterSentencesBySnd(sentenceNumber: number): Promise<DBSentence[]> {
     return this.withRetry(async () => {
       return await this.withDatabaseConnection(async (db) => {
-        let query = `SELECT 
-                      id as id,
-                      sentence_number,
-                      chapter_id,
-                      original_text,
-                      original_parsed_text,
-                      translation_parsed_text
-                    FROM book_sentences 
-                    WHERE sentence_number = ? 
-                    ORDER BY sentence_number`;
-                    
-        if (this.dbName.toLowerCase().includes("gemini")) {
-          query = `SELECT 
-                    sentence_id as id,
+        const query = `SELECT 
+                    id as id,
                     sentence_number,
                     chapter_id,
                     original_text,
@@ -316,7 +276,6 @@ export class BookDatabase {
                     FROM book_sentences 
                     WHERE sentence_number = ? 
                     ORDER BY sentence_number`;
-        }
         
         return await db.getAllAsync<DBSentence>(query, [sentenceNumber]);
       });
@@ -326,29 +285,16 @@ export class BookDatabase {
   async getChapterSentencesByID(sentenceNumber: number): Promise<DBSentence[]> {
     return this.withRetry(async () => {
       return await this.withDatabaseConnection(async (db) => {
-        let query = `SELECT 
-                      id as id,
-                      sentence_number,
-                      chapter_id,
-                      original_text,
-                      original_parsed_text,
-                      translation_parsed_text
-                    FROM book_sentences 
-                    WHERE id = ? 
-                    ORDER BY sentence_number`;
-                    
-        if (this.dbName.toLowerCase().includes("gemini")) {
-          query = `SELECT 
-                    sentence_id as id,
+        const query = `SELECT 
+                    id as id,
                     sentence_number,
                     chapter_id,
                     original_text,
                     original_parsed_text,
                     translation_parsed_text
                     FROM book_sentences 
-                    WHERE sentence_id = ? 
-                    ORDER BY sentence_id`;
-        }
+                    WHERE id = ? 
+                    ORDER BY sentence_number`;
         
         return await db.getAllAsync<DBSentence>(query, [sentenceNumber]);
       });
@@ -384,87 +330,10 @@ export class BookDatabase {
 
   async getWordTranslation(word: string): Promise<Word | null> {
     return this.withRetry(async () => {
-      if (this.dbName.toLowerCase().includes('gemini')) {
-        return await this.getWordTranslationFromGeminiDb(word);
-      }
-      return await this.getWordTranslationOriginal(word);
+      return await this.getWordTranslationFromGeminiDb(word);
     });
   }
 
-  // Original schema implementation
-  private async getWordTranslationOriginal(word: string): Promise<Word | null> {
-    try {
-      return await this.withDatabaseConnection(async (db) => {
-        // Get the word ID and translations
-        const wordQuery = await db.getFirstAsync<{ id: number, translations: string }>(
-          'SELECT id, translations FROM word_translations WHERE word = ?',
-          [word]
-        );
-        
-        if (!wordQuery) {
-          return null;
-        }
-        
-        // Split translations string into array
-        const translationsArr = wordQuery.translations
-          .split(',')
-          .map(t => t.trim());
-        
-        // Get contexts for the word
-        const contexts = await db.getAllAsync<TranslationContext>(
-          `SELECT original_text, translated_text 
-           FROM word_contexts 
-           WHERE word_id = ?`,
-          [wordQuery.id]
-        );
-        
-        // Get additional word info if available
-        const wordInfo = await db.getFirstAsync<{ info: string }>(
-          'SELECT info FROM word_info WHERE word_id = ?',
-          [wordQuery.id]
-        );
-        
-        // Convert to Word model
-        const result: Word = {
-          id: wordQuery.id,
-          name: word,
-          translations: []
-        };
-        
-        // Add each translation as a separate Translation object
-        result.translations = translationsArr.map(meaning => {
-          const translation: Translation = {
-            meaning: meaning,
-            examples: []
-          };
-          
-          // Add examples if available
-          if (contexts && contexts.length > 0) {
-            translation.examples = contexts.map(ctx => ({
-              sentence: ctx.original_text,
-              translation: ctx.translated_text
-            }));
-          }
-          
-          return translation;
-        });
-        
-        // Add additional info if available
-        if (wordInfo && wordInfo.info) {
-          result.additionalInfo = wordInfo.info;
-        }
-        
-        return result;
-      });
-    } catch (error) {
-      logger.error(LogCategories.DATABASE, 'Error getting word translation from original schema', { 
-        error: error instanceof Error ? error.message : String(error),
-        word,
-        bookTitle: this.bookTitle
-      });
-      return null;
-    }
-  }
 
   private async getWordTranslationFromGeminiDb(word: string): Promise<Word | null> {
     try {
