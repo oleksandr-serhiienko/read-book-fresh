@@ -38,7 +38,7 @@ export const selectBestContext = (card: Card): string => {
   
   // If there's no history, return hash of the first example
   if (!card.history || card.history.length === 0) {
-    const hash = createExampleHashSync(allExamples[0].sentence || '', allExamples[0].translation || '');
+    const hash = createExampleHashSync(allExamples[0].source || '', allExamples[0].target || '');
     logger.info(LogCategories.CONTEXT_SELECTION, `No history, using first example`, {
       cardId: card.id,
       word: card.word,
@@ -58,7 +58,7 @@ export const selectBestContext = (card: Card): string => {
   if (lastEntry && lastEntry.type && lastEntry.type.startsWith('Review')) {
     // Make sure the example still exists
     const example = allExamples.find(ex => 
-      createExampleHashSync(ex.sentence || '', ex.translation || '') === lastEntry.exampleHash
+      createExampleHashSync(ex.source || '', ex.target || '') === lastEntry.exampleHash
     );
     if (example) {
       logger.info(LogCategories.REVIEW_SYSTEM, `Repeating same context for review`, {
@@ -83,7 +83,7 @@ export const selectBestContext = (card: Card): string => {
   // Find an example that wasn't used in history
   for (const example of allExamples) {
     // Calculate hash for this example
-    const hash = createExampleHashSync(example.sentence || '', example.translation || '');
+    const hash = createExampleHashSync(example.source || '', example.target || '');
     
     if (!usedExampleHashes.has(hash)) {
       return hash; // Return the hash directly
@@ -101,7 +101,7 @@ export const selectBestContext = (card: Card): string => {
       if (historyEntry.exampleHash) {
         // Find the example matching this hash
         const example = allExamples.find(ex => 
-          createExampleHashSync(ex.sentence || '', ex.translation || '') === historyEntry.exampleHash
+          createExampleHashSync(ex.source || '', ex.target || '') === historyEntry.exampleHash
         );
         if (example) return historyEntry.exampleHash; // Return the hash
       }
@@ -109,7 +109,7 @@ export const selectBestContext = (card: Card): string => {
   }
   
   // Last resort: return hash of the first example
-  return createExampleHashSync(allExamples[0].sentence || '', allExamples[0].translation || '');
+  return createExampleHashSync(allExamples[0].source || '', allExamples[0].target || '');
 };
 
 // Synchronous version of hash creation for use in selection

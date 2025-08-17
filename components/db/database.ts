@@ -7,9 +7,14 @@ import { logger, LogCategories } from '@/utils/logger';
 export interface Word {
   id?: number;
   name?: string;
-  baseForm?: string;
-  additionalInfo?: string;
+  word_info?: WordInfo;
   translations?: Translation[];
+}
+
+export interface WordInfo {
+  base_form?: any;
+  definition?: string;
+  additional_info?: string;
 }
 
 export interface Translation {
@@ -17,11 +22,12 @@ export interface Translation {
   meaning?: string;
   additionalInfo?: string;
   examples?: Example[];
+  usage?: string;
 }
 
 export interface Example {
-  sentence?: string;
-  translation?: string;
+  source?: string;
+  target?: string;
 }
 
 export interface Card {
@@ -317,13 +323,17 @@ export class Database {
     if (!wordInfo) {
       wordInfo = {
         name: emittedWord.word,
-        baseForm: '',
-        additionalInfo: '',
+        word_info: {
+          base_form: {},
+          definition: '',
+          additional_info: ''
+        },
         translations: [{
           type: '',
           meaning: emittedWord.translation,
           additionalInfo: '',
-          examples: []
+          examples: [],
+          usage: ''
         }]
       };
     }
@@ -563,7 +573,7 @@ export class Database {
         for (const translation of card.wordInfo.translations) {
           if (translation.examples) {
             for (const example of translation.examples) {
-              const hash = await this.createExampleHash(example.sentence || '', example.translation || '');
+              const hash = await this.createExampleHash(example.source || '', example.target || '');
               allExamples.push({ translation, example, hash });
             }
           }

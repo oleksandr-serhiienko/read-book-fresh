@@ -11,21 +11,25 @@ export class Transform {
         // Create the Word structure
         const wordInfo: Word = {
             name: word.Original,
-            baseForm: '',
-            additionalInfo: '',
+            word_info: {
+                base_form: {},
+                definition: '',
+                additional_info: ''
+            },
             translations: word.Translations.slice(0, 5).map((t, index) => {
                 const cardTranslation: CardTranslation = {
                     type: '',
                     meaning: t.word,
                     additionalInfo: '',
-                    examples: []
+                    examples: [],
+                    usage: ''
                 };
                 
                 // Add corresponding context as example if it exists
                 if (index < context.length) {
                     cardTranslation.examples!.push({
-                        sentence: context[index].original,
-                        translation: context[index].translation
+                        source: context[index].original,
+                        target: context[index].translation
                     });
                 }
                 
@@ -77,8 +81,8 @@ export class Transform {
             Original: card.word,
             Translations: allMeanings.map(meaning => ({ word: meaning } as Translation)),
             Contexts: allExamples.map(example => ({
-                original: example.sentence || '',
-                translation: example.translation || ''
+                original: example.source || '',
+                translation: example.target || ''
             } as TranslationContext)),
             TextView: card.info?.sentence ?? ""
         };

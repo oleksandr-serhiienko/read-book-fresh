@@ -49,11 +49,11 @@ const ContextInputExercise: React.FC<LearningExerciseProps> = ({
     const words = [];
     
     if (cardHelpers.getAllExamples(card) && cardHelpers.getAllExamples(card).length > 0) {
-      const sentence = cardHelpers.getFirstExample(card)?.sentence ?? "";
+      const sentence = cardHelpers.getFirstExample(card)?.source ?? "";
       const emphasisMatches = sentence.match(/<em>(.*?)<\/em>/g);
       
       if (emphasisMatches) {
-        emphasisMatches.forEach(match => {
+        emphasisMatches.forEach((match: string) => {
           const word = match.replace(/<\/?em>/g, '');
           words.push(word);
         });
@@ -199,7 +199,7 @@ const ContextInputExercise: React.FC<LearningExerciseProps> = ({
   const getContextSentence = () => {
     if (!cardHelpers.getAllExamples(card) || cardHelpers.getAllExamples(card).length === 0) return '';
     
-    const sentence = cardHelpers.getFirstExample(card)?.sentence ?? "";
+    const sentence = cardHelpers.getFirstExample(card)?.source ?? "";
     
     if (showResult) {
       // Show complete sentence with highlighted words
@@ -210,7 +210,7 @@ const ContextInputExercise: React.FC<LearningExerciseProps> = ({
     let processedSentence = sentence;
     const emphasisMatches = sentence.match(/<em>(.*?)<\/em>/g);
     if (emphasisMatches) {
-      emphasisMatches.forEach(match => {
+      emphasisMatches.forEach((match: string) => {
         const word = match.replace(/<\/?em>/g, '');
         const underscores = '_'.repeat(word.length);
         processedSentence = processedSentence.replace(match, underscores);

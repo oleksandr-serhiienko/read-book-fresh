@@ -130,6 +130,7 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
     
     if (card?.wordInfo) {
       setWordData(card?.wordInfo);
+      console.log("📱 Word View Opened - Complete JSON Format:", JSON.stringify(card?.wordInfo, null, 2));
       let word = card?.wordInfo;
       
       // Extract all meanings from translations
@@ -143,8 +144,8 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
         Original: card.word,
         Translations: allMeanings.map(meaning => ({ word: meaning || '', pos: '' })),
         Contexts: allExamples.map(example => ({
-          original: example.sentence || '',
-          translation: example.translation || ''
+          original: example.source || '',
+          translation: example.target || ''
         })),
         Book: card.source || 'Unknown',
         TextView: "" 
@@ -178,6 +179,7 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
 
       if (wordTranslation) {
         setWordData(wordTranslation);
+        console.log("📱 Word View Opened - Complete JSON Format:", JSON.stringify(wordTranslation, null, 2));
         
         // Extract all meanings from translations
         const allMeanings = wordTranslation.translations?.map(t => t.meaning).filter(Boolean) || [];
@@ -190,8 +192,8 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
           Original: emittedWord.word,
           Translations: allMeanings.map(meaning => ({ word: meaning || '', pos: '' })),
           Contexts: allExamples.map(example => ({
-            original: example.sentence || '',
-            translation: example.translation || ''
+            original: example.source || '',
+            translation: example.target || ''
           })),
           Book: bookDb?.getDbName() || 'Unknown',
           TextView: emittedWord.translation
@@ -513,8 +515,15 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
         >
           <View style={styles.wordDetailsHeaderContent}>
             <Text style={styles.sectionTitle}>Word Details</Text>
-            {wordData.baseForm && !showWordDetails && (
-              <Text style={styles.baseFormPreview}>{formatAdditionalInfo(wordData.baseForm)}</Text>
+            {!showWordDetails && (
+              <View style={styles.previewContainer}>
+                {wordData.word_info?.definition && (
+                  <Text style={styles.definitionPreview}>{wordData.word_info.definition}</Text>
+                )}
+                {wordData.word_info?.base_form && (
+                  <Text style={styles.baseFormPreview}>{formatAdditionalInfo(wordData.word_info.base_form)}</Text>
+                )}
+              </View>
             )}
           </View>
           {showWordDetails ? 
@@ -525,20 +534,29 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
         
         {showWordDetails && (
           <View style={styles.sectionContent}>
-            {wordData.baseForm && (
+            {wordData.word_info?.base_form && (
               <View style={styles.wordDetailItem}>
                 <Text style={styles.wordDetailLabel}>Base Form</Text>
                 <Text style={styles.wordDetailValue}>
-                  {formatAdditionalInfo(wordData.baseForm)}
+                  {formatAdditionalInfo(wordData.word_info.base_form)}
+                </Text>
+              </View>
+            )}
+
+            {wordData.word_info?.definition && (
+              <View style={styles.wordDetailItem}>
+                <Text style={styles.wordDetailLabel}>Definition</Text>
+                <Text style={styles.wordDetailValue}>
+                  {wordData.word_info.definition}
                 </Text>
               </View>
             )}
             
-            {wordData.additionalInfo && (
+            {wordData.word_info?.additional_info && (
               <View style={styles.wordDetailItem}>
                 <Text style={styles.wordDetailLabel}>Additional Info</Text>
                 <Text style={styles.wordDetailValue}>
-                  {formatAdditionalInfo(wordData.additionalInfo)}
+                  {formatAdditionalInfo(wordData.word_info.additional_info)}
                 </Text>
               </View>
             )}
@@ -630,6 +648,15 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
                     </Text>
                   </View>
                 )}
+
+                {translation.usage && (
+                  <View style={styles.additionalInfoContainer}>
+                    <Text style={styles.additionalInfoLabel}>Usage:</Text>
+                    <Text style={styles.translatedText}>
+                      {translation.usage}
+                    </Text>
+                  </View>
+                )}
                 
                 {translation.examples && translation.examples.length > 0 && (
                   <View style={styles.examplesContainer}>
@@ -640,11 +667,11 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
                       return (
                         <View key={exampleIndex} style={styles.contextItem}>
                           <Text style={styles.originalText}>
-                            {renderTextWithBoldEmphasis(example.sentence || 'No sentence provided')}
+                            {renderTextWithBoldEmphasis(example.source || 'No sentence provided')}
                           </Text>
-                          {example.translation && (
+                          {example.target && (
                             <Text style={styles.translatedText}>
-                              {renderTextWithBoldEmphasis(example.translation)}
+                              {renderTextWithBoldEmphasis(example.target)}
                             </Text>
                           )}
                         </View>
@@ -1083,6 +1110,15 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 2,
     fontStyle: 'italic',
+  },
+  previewContainer: {
+    marginTop: 4,
+  },
+  definitionPreview: {
+    fontSize: 14,
+    color: '#333',
+    marginTop: 2,
+    lineHeight: 18,
   },
   exampleItem: {
     marginBottom: 8,

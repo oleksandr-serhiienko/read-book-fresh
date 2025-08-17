@@ -118,7 +118,7 @@ const ContextWithSelectableOriginal: FC<CardProps> = ({ card, onShowAnswer, cont
   // Find the example that matches the contextId (which is now a hash)
   let selectedExample: Example | null = null;
   for (const example of allExamples) {
-    const hash = createExampleHashSync(example.sentence || '', example.translation || '');
+    const hash = createExampleHashSync(example.source || '', example.target || '');
     if (hash === contextId) {
       selectedExample = example;
       break;

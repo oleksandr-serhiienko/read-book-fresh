@@ -330,90 +330,55 @@ export class BookDatabase {
 
   async getWordTranslation(word: string): Promise<Word | null> {
     return this.withRetry(async () => {
-      return await this.getWordTranslationFromGeminiDb(word);
+      return await this.getWordTranslationFromDb(word);
     });
   }
 
 
-  private async getWordTranslationFromGeminiDb(word: string): Promise<Word | null> {
+  private async getWordTranslationFromDb(word: string): Promise<Word | null> {
     try {
       return await this.withDatabaseConnection(async (db) => {
-        // Get the word record
-        const wordRecord = await db.getFirstAsync<{ 
-          word_id: number, 
-          queried_word: string,
-          base_form_json: string,
-          primary_type: string,
-          info_json: string
+        // Try exact word match first
+        let wordRecord = await db.getFirstAsync<{ 
+          word: string,
+          base_form: string,
+          wordInfo: string
         }>(
-          'SELECT word_id, queried_word, base_form_json, primary_type, info_json FROM words WHERE queried_word = ?',
+          'SELECT word, base_form, wordInfo FROM words WHERE word = ?',
           [word.toLowerCase()]
         );
+        
+        // If not found, try base_form match
+        if (!wordRecord) {
+          wordRecord = await db.getFirstAsync<{ 
+            word: string,
+            base_form: string,
+            wordInfo: string
+          }>(
+            'SELECT word, base_form, wordInfo FROM words WHERE base_form = ?',
+            [word.toLowerCase()]
+          );
+        }
         
         if (!wordRecord) {
           return null;
         }
         
-        // Get all translations for this word
-        const translations = await db.getAllAsync<{
-          translation_id: number,
-          meaning: string,
-          additional_info: string,
-          meta_type: string
-        }>(
-          'SELECT translation_id, meaning, additional_info, meta_type FROM word_translations WHERE word_id = ?',
-          [wordRecord.word_id]
-        );
+        // Parse the JSON wordInfo
+        const parsedWordInfo = this.safeParseJson(wordRecord.wordInfo);
         
-        // Create base Word object
-        const result: Word = {
-          id: wordRecord.word_id,
-          name: wordRecord.queried_word,
-          baseForm: this.safeParseJson(wordRecord.base_form_json),
-          additionalInfo: this.safeParseJson(wordRecord.info_json),
-          translations: []
+        return {
+          name: wordRecord.word,
+          word_info: {
+            base_form: parsedWordInfo.word_info?.base_form || {},
+            definition: parsedWordInfo.word_info?.definition || '',
+            additional_info: parsedWordInfo.word_info?.additional_info || ''
+          },
+          translations: parsedWordInfo.translations || []
         };
-        
-        // If no translations found, return word with empty translations
-        if (!translations || translations.length === 0) {
-          return result;
-        }
-        
-        // Process each translation - need separate connection for examples
-        result.translations = [];
-        for (const tr of translations) {
-          // Create Translation object
-          const translation: Translation = {
-            type: tr.meta_type,
-            meaning: tr.meaning,
-            additionalInfo: tr.additional_info,
-            examples: []
-          };
-
-          // Get examples for this translation using the same db connection
-          const examples = await db.getAllAsync<{
-            source_text: string,
-            target_text: string
-          }>(
-            'SELECT source_text, target_text FROM translation_examples WHERE translation_id = ?',
-            [tr.translation_id]
-          );
-          
-          // Add examples if available
-          if (examples && examples.length > 0) {
-            translation.examples = examples.map(ex => ({
-              sentence: ex.source_text,
-              translation: ex.target_text
-            }));
-          }
-          
-          result.translations.push(translation);
-        }
-        
-        return result;
       });
     } catch (error) {
-      logger.error(LogCategories.DATABASE, 'Error getting word translation from Gemini DB', { 
+      logger.error(LogCategories.DATABASE, 'Error getting word translation from DB', { 
         error: error instanceof Error ? error.message : String(error),
         word,
         bookTitle: this.bookTitle
@@ -421,6 +386,7 @@ export class BookDatabase {
       return null;
     }
   }
+
 
   private safeParseJson(jsonStr: string | null | undefined): any {
     if (!jsonStr) return {};

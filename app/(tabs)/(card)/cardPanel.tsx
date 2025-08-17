@@ -133,7 +133,7 @@ export default function CardPanel() {
     let selectedExample: Example | null = null;
     const allExamples = cardHelpers.getAllExamples(card);
     for (const example of allExamples) {
-      const hash = await database.createExampleHash(example.sentence || '', example.translation || '');
+      const hash = await database.createExampleHash(example.source || '', example.target || '');
       if (hash === selectedContextId) {
         selectedExample = example;
         break;
@@ -323,7 +323,7 @@ export default function CardPanel() {
     
     if (selectedContextId && examples.length > 0) {
       for (const example of examples) {
-        const hash = createExampleHashSync(example.sentence || '', example.translation || '');
+        const hash = createExampleHashSync(example.source || '', example.target || '');
         if (hash === selectedContextId) {
           selectedExample = example;
           

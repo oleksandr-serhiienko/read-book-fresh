@@ -41,8 +41,8 @@ const HistoryItem: React.FC<HistoryItemProps> = ({ entry, index, card }) => {
       // Find the example with matching hash
       const allExamples = cardHelpers.getAllExamples(card);
       for (const example of allExamples) {
-        const hash = createExampleHashSync(example.sentence || '', example.translation || '');
-        console.log("Trying to get hash for: " + example.sentence + " " + example.translation);
+        const hash = createExampleHashSync(example.source || '', example.target || '');
+        console.log("Trying to get hash for: " + example.source + " " + example.target);
         console.log("The hash compare is : " + hash + " " + entry.exampleHash);
         if (hash === entry.exampleHash) {
           setExampleData(example);
