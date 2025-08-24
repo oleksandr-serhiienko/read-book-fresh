@@ -181,11 +181,10 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   actionButton: {
-    flex: 1,
+    width: 160,
     height: 120,
     padding: 0,
     borderRadius: 12,
-    marginHorizontal: 4,
     overflow: 'hidden',
     elevation: 2,
   },
@@ -219,11 +218,13 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
   bookCoverBackground: {
-    flex: 1,
+    width: 160,
+    height: 120,
     justifyContent: 'flex-end',
   },
   bookCoverImage: {
     opacity: 0.6, // Slightly dim the cover image
+    resizeMode: 'cover',
   },
   container: {
     flex: 1,

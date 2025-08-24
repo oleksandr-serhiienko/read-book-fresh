@@ -55,7 +55,8 @@ const SimpleReader: React.FC<DBReaderProps> = ({ bookUrl, bookTitle, imageUrl })
   const [sentencesBeforeTarget, setSentencesBeforeTarget] = useState(15);
   const [currentVisibleSentence, setCurrentVisibleSentence] = useState<number | null>(null);
   let maxChapterCount = 0;
-  let maxSentenceCount = 0;
+  const [maxSentenceCount, setMaxSentenceCount] = useState(0);
+  const maxSentenceCountRef = useRef(0);
   const [chapterProgress, setChapterProgress] = useState<number>(0);
   const [sentencProgress, setSentenceProgress] = useState<number>(0);
   
@@ -135,7 +136,9 @@ const initializeDb = async () => {
       };
       await database.insertBook(book);
       maxChapterCount = await bookDatabase.getTotalChapters();
-      maxSentenceCount = await bookDatabase.getChapterSentenceCount(1);   
+      const sentenceCount = await bookDatabase.getChapterSentenceCount(1);
+      setMaxSentenceCount(sentenceCount);
+      maxSentenceCountRef.current = sentenceCount;   
     } else {
       let savedChapter = 1; // Default
       let savedSentence = 1; // Default
@@ -168,7 +171,9 @@ const initializeDb = async () => {
       currentChapterRef.current = savedChapter; // Update the ref too
       setTargetSentenceIndex(savedSentence); 
       maxChapterCount = await bookDatabase.getTotalChapters();
-      maxSentenceCount = await bookDatabase.getChapterSentenceCount(savedChapter);      
+      const sentenceCount = await bookDatabase.getChapterSentenceCount(savedChapter);
+      setMaxSentenceCount(sentenceCount);
+      maxSentenceCountRef.current = sentenceCount;      
     }
     
     logger.info(LogCategories.DATABASE, 'Database initialized successfully', { bookTitle });
@@ -236,6 +241,23 @@ const initializeDb = async () => {
       loadChapter(readerCurrentChapter);
       setShouldScrollToTarget(true);
       setShowAllSentences(false);
+      
+      // Update sentence count for the new chapter
+      db.getChapterSentenceCount(readerCurrentChapter).then(count => {
+        logger.debug(LogCategories.DATABASE, 'Updating maxSentenceCount', { 
+          bookTitle, 
+          chapter: readerCurrentChapter, 
+          newCount: count 
+        });
+        setMaxSentenceCount(count);
+        maxSentenceCountRef.current = count;
+      }).catch(error => {
+        logger.error(LogCategories.DATABASE, 'Error getting chapter sentence count', { 
+          error: error instanceof Error ? error.message : String(error), 
+          bookTitle,
+          chapter: readerCurrentChapter 
+        });
+      });
     }
   }, [db, readerCurrentChapter]);
 
@@ -320,7 +342,7 @@ const initializeDb = async () => {
             bookTitle, 
             chapter: currentChapter, 
             sentence: sentenceNumber, 
-            totalSentences: chapterSentences.length 
+            totalSentences: maxSentenceCountRef.current 
           });
           
           // Add to queue instead of immediate update
@@ -342,7 +364,7 @@ const initializeDb = async () => {
       
       // Now calculate with the fresh values
       const chapterProgress = (currentChapterNumber / maxChapterCount) * 100;
-      const sentenceProgress = (currentSentenceNumber / maxSentenceCount) * 100;
+      const sentenceProgress = (currentSentenceNumber / maxSentenceCountRef.current) * 100;
 
       // Update state with the calculated values
       setChapterProgress(chapterProgress);
