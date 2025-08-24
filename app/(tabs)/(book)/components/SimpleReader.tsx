@@ -320,7 +320,7 @@ const initializeDb = async () => {
             bookTitle, 
             chapter: currentChapter, 
             sentence: sentenceNumber, 
-            totalSentences: maxSentenceCount 
+            totalSentences: chapterSentences.length 
           });
           
           // Add to queue instead of immediate update

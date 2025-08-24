@@ -372,10 +372,10 @@ export default function CardPanel() {
           {examples.length > 0 && selectedExample && (
             <View style={styles.contextContainer}>
               <Text style={styles.contextText}>
-                {renderHighlightedText(selectedExample.sentence || "")}
+                {renderHighlightedText(selectedExample.source || "")}
               </Text>
               <Text style={styles.contextText}>
-                {renderHighlightedText(selectedExample.translation || "")}
+                {renderHighlightedText(selectedExample.target || "")}
               </Text>
             </View>
           )}

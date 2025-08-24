@@ -515,15 +515,8 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
         >
           <View style={styles.wordDetailsHeaderContent}>
             <Text style={styles.sectionTitle}>Word Details</Text>
-            {!showWordDetails && (
-              <View style={styles.previewContainer}>
-                {wordData.word_info?.definition && (
-                  <Text style={styles.definitionPreview}>{wordData.word_info.definition}</Text>
-                )}
-                {wordData.word_info?.base_form && (
-                  <Text style={styles.baseFormPreview}>{formatAdditionalInfo(wordData.word_info.base_form)}</Text>
-                )}
-              </View>
+            {wordData.word_info?.base_form && !showWordDetails && (
+              <Text style={styles.baseFormPreview}>{formatAdditionalInfo(wordData.word_info.base_form)}</Text>
             )}
           </View>
           {showWordDetails ? 
@@ -543,15 +536,6 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
               </View>
             )}
 
-            {wordData.word_info?.definition && (
-              <View style={styles.wordDetailItem}>
-                <Text style={styles.wordDetailLabel}>Definition</Text>
-                <Text style={styles.wordDetailValue}>
-                  {wordData.word_info.definition}
-                </Text>
-              </View>
-            )}
-            
             {wordData.word_info?.additional_info && (
               <View style={styles.wordDetailItem}>
                 <Text style={styles.wordDetailLabel}>Additional Info</Text>
@@ -823,7 +807,12 @@ export function WordInfoContent({ content, initialIsAdded }: WordInfoContentProp
   return (
     <ScrollView style={styles.container}>
       <View style={styles.headerSection}>
-        <Text style={styles.originalWord}>{fullTranslation.Original}</Text>
+        <View style={styles.headerContent}>
+          <Text style={styles.originalWord}>{fullTranslation.Original}</Text>
+          {wordData?.word_info?.definition && (
+            <Text style={styles.definitionText}>{wordData.word_info.definition}</Text>
+          )}
+        </View>
         <TouchableOpacity 
           style={[styles.speakButton, isSpeaking && styles.speakButtonActive]} 
           onPress={handleSpeak}
@@ -970,7 +959,7 @@ const styles = StyleSheet.create({
   },
   headerSection: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     backgroundColor: 'white',
     borderRadius: 10,
@@ -981,6 +970,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  headerContent: {
+    flex: 1,
+    marginRight: 10,
+  },
+  definitionText: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 18,
+    marginTop: 4,
+    fontStyle: 'italic',
   },
   originalWord: {
     fontSize: 24,

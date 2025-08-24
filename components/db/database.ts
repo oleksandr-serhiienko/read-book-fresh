@@ -109,6 +109,7 @@ export const cardHelpers = {
 
 export class Database {
   private isInitialized: boolean = false;
+  private isMigrated: boolean = false;
 
   // CRITICAL: New connection management pattern for Expo SQLite 15.x
   private async withDatabaseConnection<T>(operation: (db: SQLite.SQLiteDatabase) => Promise<T>): Promise<T> {
@@ -151,9 +152,29 @@ export class Database {
       await this.withDatabaseConnection(async (db) => {
         await this.createTablesWithConnection(db);
       });
-    
       
       this.isInitialized = true;
+
+      // Run example format migration after initialization is complete
+      if (!this.isMigrated) {
+        try {
+          await this.withDatabaseConnection(async (db) => {
+            if (await this.needsExampleFormatMigrationWithConnection(db)) {
+              const migrationResult = await this.migrateExampleFormatWithConnection(db);
+              logger.info(LogCategories.DATABASE, 'Example format migration completed during initialization', {
+                updated: migrationResult.updated,
+                errors: migrationResult.errors
+              });
+            }
+          });
+          this.isMigrated = true;
+        } catch (error) {
+          logger.error(LogCategories.DATABASE, 'Example format migration failed during initialization', {
+            error: error instanceof Error ? error.message : String(error)
+          });
+          // Don't throw - let the app continue even if migration fails
+        }
+      }
       logger.info(LogCategories.DATABASE, 'Main database initialized successfully');
     } catch (error) {
       logger.error(LogCategories.DATABASE, 'Error initializing main database', { 
@@ -906,6 +927,115 @@ export class Database {
         throw error;
       }
     });
+  }
+
+  // Check if example format migration is needed
+  private async needsExampleFormatMigrationWithConnection(db: SQLite.SQLiteDatabase): Promise<boolean> {
+    try {
+      // Check if any card has the old format (sentence/translation fields)
+      const sampleCards = await db.getAllAsync<any>(
+        'SELECT wordInfo FROM cards WHERE wordInfo IS NOT NULL LIMIT 5'
+      );
+      
+      for (const cardRow of sampleCards) {
+        try {
+          const wordInfo = JSON.parse(cardRow.wordInfo);
+          if (wordInfo.translations && Array.isArray(wordInfo.translations)) {
+            for (const translation of wordInfo.translations) {
+              if (translation.examples && Array.isArray(translation.examples)) {
+                for (const example of translation.examples) {
+                  // If we find old format, migration is needed
+                  if (example.sentence !== undefined || example.translation !== undefined) {
+                    return true;
+                  }
+                }
+              }
+            }
+          }
+        } catch (error) {
+          // Skip malformed cards
+          continue;
+        }
+      }
+      
+      return false; // No old format found
+    } catch (error) {
+      logger.error(LogCategories.DATABASE, 'Error checking if migration is needed', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+      return false; // Assume no migration needed if check fails
+    }
+  }
+
+  // Migration method to update old example format to new format
+  private async migrateExampleFormatWithConnection(db: SQLite.SQLiteDatabase): Promise<{ updated: number, errors: number }> {
+    let updated = 0;
+    let errors = 0;
+
+    try {
+      // Get all cards
+      const allCards = await db.getAllAsync<any>('SELECT id, wordInfo FROM cards WHERE wordInfo IS NOT NULL');
+      
+      logger.info(LogCategories.DATABASE, `Starting example format migration for ${allCards.length} cards`);
+
+      for (const cardRow of allCards) {
+        try {
+          let wordInfo = JSON.parse(cardRow.wordInfo);
+          let hasChanges = false;
+
+          if (wordInfo.translations && Array.isArray(wordInfo.translations)) {
+            for (const translation of wordInfo.translations) {
+              if (translation.examples && Array.isArray(translation.examples)) {
+                for (const example of translation.examples) {
+                  // Check if old format exists and convert to new format
+                  if (example.sentence !== undefined || example.translation !== undefined) {
+                    if (example.sentence !== undefined) {
+                      example.source = example.sentence;
+                      delete example.sentence;
+                      hasChanges = true;
+                    }
+                    if (example.translation !== undefined) {
+                      example.target = example.translation;
+                      delete example.translation;
+                      hasChanges = true;
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          // Update the card if changes were made
+          if (hasChanges) {
+            await db.runAsync(
+              'UPDATE cards SET wordInfo = ? WHERE id = ?',
+              [JSON.stringify(wordInfo), cardRow.id]
+            );
+            updated++;
+
+            if (updated % 50 === 0) {
+              logger.info(LogCategories.DATABASE, `Migrated ${updated} cards so far`);
+            }
+          }
+
+        } catch (error) {
+          errors++;
+          logger.error(LogCategories.DATABASE, 'Error migrating individual card', {
+            error: error instanceof Error ? error.message : String(error),
+            cardId: cardRow.id
+          });
+        }
+      }
+
+      logger.info(LogCategories.DATABASE, `Example format migration completed: ${updated} cards updated, ${errors} errors`);
+      return { updated, errors };
+
+    } catch (error) {
+      logger.error(LogCategories.DATABASE, 'Error during example format migration', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+      throw error;
+    }
   }
 }
 
